@@ -85,12 +85,39 @@ to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_
 df_train_4 <- df_train_3[,-which(names(df_train_3) %in% to.remove)]
 df_train_4  <- na.omit(df_train_4)
 
-df_train_4$TARGET
-gbm_1 <- gbm(formula=TARGET~.,
+write.csv("~/Downloads/df_train_4.csv")
+read.csv("~/Downloads/df_train_4.csv")
+
+table(df_train_4$TARGET)
+
+# model1:split by 0.8
+split_1 <- (.8)
+training_index_1 <- sample(1:nrow(df_train_4),(split_1)*nrow(df_train_4)) 
+df_training_1 <- df_train_4[training_index_1,]
+
+test_index_1 <- sample(1:nrow(df_train_4),(1-split_1)*nrow(df_train_4)) 
+df_test_1 <- df_train_4[test_index_1,]
+
+gbm_model_1 <- gbm(formula=TARGET~.,
              distribution = "bernoulli",
-             data=df_train_4,
-             n.trees = 1000)
+             data=df_training_1,
+             n.trees = 1000,
+             interaction.depth = 4,
+             shrinkage = 0.01,
+             cv.folds = 4)
+summary(gbm_model_1)
 
 
-# which package? What for?
-# modelLookup()
+# determine the optimum number of iterations
+model_1_opt_cv <- gbm.perf(gbm_model_1,method = "cv")
+model_1_opt_oob <- gbm.perf(gbm_model_1,method = "OOB")
+
+# OOB generally underestimates the optimal number of iterations 
+# although predictive performance is reasonably competitive. 
+# Using cv_folds>1 when calling gbm usually results in improved predictive performance.
+
+p1 <- predict(gbm_1,df_test_1,type="response")
+plot(seq(-2,2,length=length(sort(p1))),sort(p1))
+
+# caret, getting tuning parameters
+modelLookup("gbm")
