@@ -19,22 +19,23 @@ df_previousApplication <- read.csv(path_previousApplication)
 
 nrow(df_train)
 df_combined <- merge(df_train,df_cardBalance,all.x = T,by = "SK_ID_CURR") #
+nrow(df_combined)
 df_combined_2 <- merge(df_train,df_previousApplication,all.x = T,by = "SK_ID_CURR")
 nrow(df_combined_2)
+
+
 
 df_combined_double <-merge(df_combined,df_previousApplication,all.x = T) 
 nrow(df_cardBalance)
 
 
 
-for( i in 1:length(names(df_cardBalance)))
+for( i in 1:length(names(df_previousApplication)))
 {
-  if (names(df_cardBalance)[i] %in% names(df_train))
+  if (names(df_previousApplication)[i] %in% names(df_train))
   {
-    print("True")
+    print(names(df_previousApplication)[i])
   }
-  else
-    print("False")
 }
 
 
