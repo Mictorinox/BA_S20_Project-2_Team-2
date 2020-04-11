@@ -74,3 +74,48 @@ rf.predict<-as.factor(rf.predict)
 confusionMatrix(rf.predict,test.df[,outcomeName])
 
 F1_Score(test.df[,outcomeName],rf.predict)
+
+
+# Advanced GBM Tunning no Re-balance Data with Rose 
+
+####################  balanced the data from 8% to 40% of rare cases 
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.08, N= 20000)$data
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+####################  create pipeline, grid search and model
+train.df.balanced$TARGET<-as.factor(train.df.balanced$TARGET)
+
+fitControl.gbm3 <- trainControl(method = "repeatedcv",
+                               number = 20,
+                               repeats = 5)
+
+gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
+                        n.trees = (1:10)*10, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+gbm4.tuned<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+                 method='gbm',
+                 trControl=fitControl.gbm3,
+                 tuneGrid = gbm.grid)
+#################### output the prediction and see confustion matrix and F-1
+gbm.tuned.predict<-predict(gbm4.tuned,test.df[,predictorNames],type="raw")
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+gbm.tuned.predict<-ifelse(gbm.tuned.predict==2,1,0)
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+#confusionMatrix accuracy
+confusionMatrix(gbm.tuned.predict,test.df[,outcomeName])
+#f1
+F1_Score(test.df[,outcomeName],gbm.tuned.predict)
+#roc-auc
+library(pROC)
+gbm.tuned.probs <- predict(gbm3.tuned,test.df[,predictorNames],type="prob")    
+auc(test.df[,outcomeName],gbm.tuned.probs[,2])
+
+#################### see the grid search performance 
+library(ggplot2)
+ggplot(gbm3.tuned)
+gbm3.tuned 
