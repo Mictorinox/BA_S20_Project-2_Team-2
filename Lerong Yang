@@ -57,6 +57,14 @@ confusionMatrix(rf.predict,test.df[,outcomeName])
 library(MLmetrics)
 F1_Score(test.df[,outcomeName],rf.predict)
 
+#install.packages("ROSE")
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+
 # p=40% of rare cases
 rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
 #rf.predict
