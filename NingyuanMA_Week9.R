@@ -4,6 +4,7 @@ library(dataQualityR)
 library(gbm)
 library(caret)
 library(pROC)
+library(ROSE)
 
 path_train <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
 path_toScore <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/applications_to_score_S20.csv"
@@ -16,13 +17,17 @@ df_toScore <- read.csv(path_toScore)
 df_cardBalance <- read.csv(path_cardBalance)
 df_previousApplication <- read.csv(path_previousApplication)
 
-
+length(unique(df_train$SK_ID_CURR))
 nrow(df_train)
+
+
 df_combined <- merge(df_train,df_cardBalance,all.x = T,by = "SK_ID_CURR") #
 nrow(df_combined)
-df_combined_2 <- merge(df_train,df_previousApplication,all.x = T,by = "SK_ID_CURR")
+df_combined_2 <- merge(df_train,df_previousApplication,all.x = T)
+length(unique(df_previousApplication$SK_ID_CURR))
+nrow(df_previousApplication)
 nrow(df_combined_2)
-
+length(unique(df_combined_2$SK_ID_CURR))
 
 
 df_combined_double <-merge(df_combined,df_previousApplication,all.x = T) 
@@ -32,10 +37,12 @@ nrow(df_cardBalance)
 
 for( i in 1:length(names(df_previousApplication)))
 {
-  if (names(df_previousApplication)[i] %in% names(df_train))
+  if (names(df_previousApplication)[i] %in% names(df_toScore))
   {
-    print(names(df_previousApplication)[i])
+    # print(names(df_previousApplication)[i])
   }
+  else
+    print(names(df_previousApplication)[i])
 }
 
 
@@ -95,9 +102,17 @@ df_train_4  <- na.omit(df_train_4)
 write.csv("~/Downloads/df_train_4.csv")
 read.csv("~/Downloads/df_train_4.csv")
 
+# balance the data
+df_train_4$TARGET<-as.integer(df_train_4$TARGET)
+df_train_4_balanced<-ovun.sample(TARGET~., data = df_train_4, p=0.4, N= 20000)$data # this runs!
+table(df_train_4_balanced$TARGET)
+prop.table(table(df_train_4_balanced$TARGET))
+
+
 table(df_train_4$TARGET)
 
-# model1:split by 0.8
+
+# testing set 1: split by 0.8
 split_1 <- (.8)
 training_index_1 <- sample(1:nrow(df_train_4),(split_1)*nrow(df_train_4)) 
 df_training_1 <- df_train_4[training_index_1,]
