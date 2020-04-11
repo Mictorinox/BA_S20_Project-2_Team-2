@@ -38,3 +38,31 @@ table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
+
+fitControl <- trainControl(method = "none")  
+
+# RF Model
+train.df.balanced$TARGET<-as.factor(train.df.balanced$TARGET)
+rf<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+                method='rf',
+                trControl=fitControl)
+# p=40% of rare cases
+rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
+#rf.predict
+rf.predict<-as.factor(rf.predict)
+rf.predict<-ifelse(rf.predict==2,1,0)
+rf.predict<-as.factor(rf.predict)
+confusionMatrix(rf.predict,test.df[,outcomeName])
+
+library(MLmetrics)
+F1_Score(test.df[,outcomeName],rf.predict)
+
+# p=40% of rare cases
+rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
+#rf.predict
+rf.predict<-as.factor(rf.predict)
+rf.predict<-ifelse(rf.predict==2,1,0)
+rf.predict<-as.factor(rf.predict)
+confusionMatrix(rf.predict,test.df[,outcomeName])
+
+F1_Score(test.df[,outcomeName],rf.predict)
