@@ -103,14 +103,15 @@ write.csv(df_train_4,"D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homewo
 read.csv("D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/df_train_4.csv")
 
 # balance the data
-df_train_4$TARGET<-as.integer(df_train_4$TARGET)
-df_train_4_balanced<-ovun.sample(TARGET~., data = df_train_4, p=0.4, N= 50000)$data # 20000 runs rather smooth
+df_train_4$TARGET <- as.integer(df_train_4$TARGET)
+df_train_4_balanced <- ovun.sample(TARGET ~ ., data = df_train_4, p=0.4, N= 50000)$data # 20000 runs rather smooth
+df_train_4_small <- ovun.sample(TARGET ~ ., data = df_train_4, N= 20000)$data
 table(df_train_4_balanced$TARGET)
 prop.table(table(df_train_4_balanced$TARGET))
 
 
 
-# testing set 1: split by 0.8
+# training set 1: balanced, split by 0.8
 split_1 <- (.8)
 training_index_1 <- sample(1:nrow(df_train_4_balanced),(split_1)*nrow(df_train_4_balanced)) 
 df_training_1 <- df_train_4_balanced[training_index_1,]
@@ -120,6 +121,21 @@ test_index_1 <- sample(1:nrow(df_train_4_balanced),(1-split_1)*nrow(df_train_4_b
 df_test_1 <- df_train_4_balanced[test_index_1,]
 table(df_test_1$TARGET)
 
+
+# training set 2: unbalanced, small,  split by 0.8
+split_2 <- (.8)
+training_index_2 <- sample(1:nrow(df_train_4_small),(split_2)*nrow(df_train_4_small)) 
+df_training_2 <- df_train_4_small[training_index_2,]
+table(df_training_2$TARGET)
+
+test_index_2 <- sample(1:nrow(df_train_4_small),(1-split_2)*nrow(df_train_4_small)) 
+df_test_2 <- df_train_4_small[test_index_2,]
+table(df_test_2$TARGET)
+
+
+
+
+# model 1: running with training set 1, gbm library
 gbm_model_1 <- gbm(formula=TARGET~.,
              distribution = "bernoulli",
              data=df_training_1,
@@ -169,7 +185,7 @@ accuracy_1 # =0.91
 
 
 
-# model2
+# model2: running with data set 1, caret library
 df_test_1$TARGET <- as.factor(df_test_1$TARGET) # didn't run this line 
 
 fitControl_gbm_2 <- trainControl(method = "repeatedcv",
@@ -181,7 +197,7 @@ grid_gbm_2 <- expand.grid(interaction.depth = c(3,4,5),
                         shrinkage = 0.1,
                         n.minobsinnode = 20)
 
-gbm_model_2 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET"))],
+gbm_model_2 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET","SK_ID_CURR"))],
                      df_training_1$TARGET,
                      method="gbm",
                      trControl = fitControl_gbm_2,
@@ -190,24 +206,53 @@ gbm_model_2 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET
 # train.faction is added to solve validDeviance = nan issue
 # run from here
 p2 <- predict(gbm_model_2,df_test_1,type="raw")
+
 p2 <- as.factor(p2)
-p2 <- ifelse(p2==2,1,0)
-p2 <- as.factor(p2)
+
+
+p2_2 <- predict(gbm_model_2,df_training_1,type="raw")
+p2_2 <- as.factor(p2_2)
+p2_2 <- ifelse(p2_2==2,1,0)
+p2_2 <- as.factor(p2_2)
 
 # model 2 assessment
 confusionMatrix(p2,df_test_1$TARGET)
+
+df_training_1$TARGET <- as.factor(df_training_1$TARGET)
+confusionMatrix(p2_2,df_training_1$TARGET)
+
 F1_Score()
 
 # model 3
-rf_model_3 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET"))],
-                     df_training_1$TARGET,
+# model2: running with data set 1, caret library
+df_test_2$TARGET <- as.factor(df_test_2$TARGET) # didn't run this line 
+
+fitControl_gbm_3 <- trainControl(method = "repeatedcv",
+                                 number = 20,
+                                 repeats = 5)
+
+grid_gbm_3 <- expand.grid(interaction.depth = c(3,4,5), 
+                          n.trees = (1:10)*10, 
+                          shrinkage = 0.1,
+                          n.minobsinnode = 20)
+
+gbm_model_3 <- train(df_training_2[ , -which(names(df_training_2) %in% c("TARGET","SK_ID_CURR"))],
+                     df_training_2$TARGET,
                      method="gbm",
-                     trControl = fitControl_gbm_2,
-                     tuneGrid = grid_gbm_2)
+                     trControl = fitControl_gbm_3,
+                     tuneGrid = grid_gbm_3,
+                     train.fraction = 0.5)
 
+# 
+p_3 <- predict(gbm_model_2,df_test_2,type="raw")
+table(p_3)
+p_3 <- as.factor(p_3)
 
+p_3 <- as.factor(p_3)
+confusionMatrix(p_3,df_test_2$TARGET)
 
-
+df_training_2$TARGET <- as.factor(df_training_2$TARGET)
+confusionMatrix(p_3,df_training_2$TARGET)
 
 # caret, getting tuning parameters
 ?getModelInfo()
