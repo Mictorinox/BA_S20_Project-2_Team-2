@@ -166,5 +166,25 @@ summary(train.df[,-1])
 glm.model <- glm(formula=TARGET~.,
                  data=application_train[,-1], family="binomial") 
 
-###########
 
+#credit card balance
+cc_balance <- read.csv("credit_card_balance.csv",header=TRUE, stringsAsFactors=FALSE)
+str(cc_balance)
+
+#check if any SK_ID_PREV is in SK_ID_CURR
+ifelse(any(cc_balance$SK_ID_PREV == cc_balance$SK_ID_CURR), "TRUE","FALSE")
+
+#To process numeric data, using mean value for variables for different id
+cc_num <- cc_balance[,c(2:20,22:23)] %>% group_by(SK_ID_CURR) %>% summarise_all(funs(mean))
+
+#To process char data, count frequency
+cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
+cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
+names(cc_char)[1]<- "SK_ID_CURR"
+
+#merge sets, append to application_train_4, from column 21
+application_train_5 <- merge(application_train_4,
+                             merge(cc_num, cc_char, by="SK_ID_CURR"),
+                             all.y=TRUE, by="SK_ID_CURR")
+str(application_train_5)                                
+                               
