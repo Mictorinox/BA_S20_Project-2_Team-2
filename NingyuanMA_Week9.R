@@ -3,6 +3,7 @@ library(naniar)
 library(dataQualityR)
 library(gbm)
 library(caret)
+library(pROC)
 
 path_train <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
 path_toScore <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/applications_to_score_S20.csv"
@@ -106,18 +107,41 @@ gbm_model_1 <- gbm(formula=TARGET~.,
              shrinkage = 0.01,
              cv.folds = 4)
 summary(gbm_model_1)
+# cv.folds must be >= 1 in order to perform early stopping
 
 
 # determine the optimum number of iterations
-model_1_opt_cv <- gbm.perf(gbm_model_1,method = "cv")
-model_1_opt_oob <- gbm.perf(gbm_model_1,method = "OOB")
+ntree_model_1_opt_cv <- gbm.perf(gbm_model_1,method = "cv")
+print(model_1_opt_cv)
+ntree_model_1_opt_oob <- gbm.perf(gbm_model_1,method = "OOB")
+print(model_1_opt_oob)
 
 # OOB generally underestimates the optimal number of iterations 
 # although predictive performance is reasonably competitive. 
 # Using cv_folds>1 when calling gbm usually results in improved predictive performance.
 
-p1 <- predict(gbm_1,df_test_1,type="response")
-plot(seq(-2,2,length=length(sort(p1))),sort(p1))
+# TODO: data partition
+p1 <- predict(gbm_1,df_test_1,n.trees = ntree_model_1_opt_cv,type="response")
+plot(seq(-1,1,length=length(sort(p1))),sort(p1))
+predicted_1 <- ifelse(p1>0.5,1,0)
+predictedFactor_1 <- as.factor(predicted_1)
+
+result_1 <- table(predicted_1,df_test_1$TARGET)
+result_1
+targetFactor_1 <- as.factor(df_test_1$TARGET)
+confusionMatrix(predictedBinaries_1,df_test_1$TARGET)
+class(df_test_1$TARGET)
+
+showcase_1 <- data.frame(cbind(actuals=df_test_1$TARGET,predicted=predicted_1))
+head(showcase_1,10)
+
+showcase_1$correctness=1-xor(showcase_1$actuals,showcase_1$predicted)
+table(showcase_1$correctness)
+accuracy_1=sum(showcase_1$correctness)/nrow(showcase_1)
+accuracy_1 # =0.91
+
+confusionMatrix(predictedBinaries_1,df_test_1$TARGET)
+
 
 # caret, getting tuning parameters
 modelLookup("gbm")
