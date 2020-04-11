@@ -108,9 +108,13 @@ plot(gbmImp)
 
 # measuring performance
 rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
-confusionMatrix(rf.predict,test.df[,outcomeName], positive = "TRUE")
-
+confusionMatrix(rf.predict,test.df[,outcomeName])
+#recall=0.861934,precision=0.6326154
+#F score=2*(0.861934*0.6326154)/(0.861934+0.6326154)=0.7296818
+# Accuracy = 0.6191  
 
 gbm.predict<-predict(gbm,test.df[,predictorNames],type="raw")
-confusionMatrix(gbm.predict,test.df[,outcomeName], positive = "TRUE")
-
+confusionMatrix(gbm.predict,test.df[,outcomeName])
+#recall=0.9577977,precision=0.6050494
+#F Score=2*(0.9577977*0.6050494)/(0.9577977+0.6050494)=0.7416144
+#Accuracy : 0.6019  
