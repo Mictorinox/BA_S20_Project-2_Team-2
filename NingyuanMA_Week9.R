@@ -114,11 +114,13 @@ table(df_train_4$TARGET)
 
 # testing set 1: split by 0.8
 split_1 <- (.8)
-training_index_1 <- sample(1:nrow(df_train_4),(split_1)*nrow(df_train_4)) 
-df_training_1 <- df_train_4[training_index_1,]
+training_index_1 <- sample(1:nrow(df_train_4_balanced),(split_1)*nrow(df_train_4_balanced)) 
+df_training_1 <- df_train_4_balanced[training_index_1,]
+table(df_training_1$TARGET)
 
-test_index_1 <- sample(1:nrow(df_train_4),(1-split_1)*nrow(df_train_4)) 
-df_test_1 <- df_train_4[test_index_1,]
+test_index_1 <- sample(1:nrow(df_train_4_balanced),(1-split_1)*nrow(df_train_4_balanced)) 
+df_test_1 <- df_train_4_balanced[test_index_1,]
+table(df_test_1$TARGET)
 
 gbm_model_1 <- gbm(formula=TARGET~.,
              distribution = "bernoulli",
@@ -127,7 +129,12 @@ gbm_model_1 <- gbm(formula=TARGET~.,
              interaction.depth = 4,
              shrinkage = 0.01,
              cv.folds = 4)
+gbm_model_1 <- gbm(formula=TARGET~.,
+                   distribution = "bernoulli",
+                   data=df_training_1)
 summary(gbm_model_1)
+
+
 # cv.folds must be >= 1 in order to perform early stopping
 
 
@@ -141,8 +148,7 @@ print(model_1_opt_oob)
 # although predictive performance is reasonably competitive. 
 # Using cv_folds>1 when calling gbm usually results in improved predictive performance.
 
-# TODO: balance data partition
-p1 <- predict(gbm_1,df_test_1,n.trees = ntree_model_1_opt_cv,type="response")
+p1 <- predict(gbm_model_1,df_test_1,n.trees = ntree_model_1_opt_cv,type="response")
 plot(seq(-1,1,length=length(sort(p1))),sort(p1))
 predicted_1 <- ifelse(p1>0.5,1,0)
 predictedFactor_1 <- as.factor(predicted_1)
