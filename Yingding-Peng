@@ -76,8 +76,6 @@ index <- createDataPartition(application_train_4_balanced$TARGET, p=split, list=
 train.df <- application_train_4_balanced[ index,]  # model training data
 test.df<- application_train_4_balanced[ -index,]   # test data
 
-# model setup
-names(getModelInfo())  #200+ ML algorithms
 
 modelLookup(model='rf')  # To find the parameters of a model that can be tuned
 modelLookup(model='gbm') 
