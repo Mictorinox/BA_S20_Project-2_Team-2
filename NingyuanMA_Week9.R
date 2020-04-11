@@ -20,7 +20,7 @@ df_previousApplication <- read.csv(path_previousApplication)
 length(unique(df_train$SK_ID_CURR))
 nrow(df_train)
 
-
+# not right
 df_combined <- merge(df_train,df_cardBalance,all.x = T,by = "SK_ID_CURR") #
 nrow(df_combined)
 df_combined_2 <- merge(df_train,df_previousApplication,all.x = T)
@@ -99,17 +99,15 @@ to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_
 df_train_4 <- df_train_3[,-which(names(df_train_3) %in% to.remove)]
 df_train_4  <- na.omit(df_train_4)
 
-write.csv("~/Downloads/df_train_4.csv")
-read.csv("~/Downloads/df_train_4.csv")
+write.csv(df_train_4,"D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/df_train_4.csv")
+read.csv("D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/df_train_4.csv")
 
 # balance the data
 df_train_4$TARGET<-as.integer(df_train_4$TARGET)
-df_train_4_balanced<-ovun.sample(TARGET~., data = df_train_4, p=0.4, N= 20000)$data # this runs!
+df_train_4_balanced<-ovun.sample(TARGET~., data = df_train_4, p=0.4, N= 50000)$data # 20000 runs rather smooth
 table(df_train_4_balanced$TARGET)
 prop.table(table(df_train_4_balanced$TARGET))
 
-
-table(df_train_4$TARGET)
 
 
 # testing set 1: split by 0.8
@@ -149,6 +147,7 @@ print(model_1_opt_oob)
 # Using cv_folds>1 when calling gbm usually results in improved predictive performance.
 
 p1 <- predict(gbm_model_1,df_test_1,n.trees = ntree_model_1_opt_cv,type="response")
+
 plot(seq(-1,1,length=length(sort(p1))),sort(p1))
 predicted_1 <- ifelse(p1>0.5,1,0)
 predictedFactor_1 <- as.factor(predicted_1)
@@ -156,6 +155,7 @@ predictedFactor_1 <- as.factor(predicted_1)
 result_1 <- table(predicted_1,df_test_1$TARGET)
 result_1
 targetFactor_1 <- as.factor(df_test_1$TARGET)
+
 confusionMatrix(predictedBinaries_1,df_test_1$TARGET)
 class(df_test_1$TARGET)
 
@@ -167,7 +167,46 @@ table(showcase_1$correctness)
 accuracy_1=sum(showcase_1$correctness)/nrow(showcase_1)
 accuracy_1 # =0.91
 
-confusionMatrix(predictedBinaries_1,df_test_1$TARGET)
+
+
+# model2
+df_test_1$TARGET <- as.factor(df_test_1$TARGET) # didn't run this line 
+
+fitControl_gbm_2 <- trainControl(method = "repeatedcv",
+                                number = 20,
+                                repeats = 5)
+
+grid_gbm_2 <- expand.grid(interaction.depth = c(3,4,5), 
+                        n.trees = (1:10)*10, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+gbm_model_2 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET"))],
+                     df_training_1$TARGET,
+                     method="gbm",
+                     trControl = fitControl_gbm_2,
+                     tuneGrid = grid_gbm_2,
+                     train.fraction = 0.5)
+# train.faction is added to solve validDeviance = nan issue
+# run from here
+p2 <- predict(gbm_model_2,df_test_1,type="raw")
+p2 <- as.factor(p2)
+p2 <- ifelse(p2==2,1,0)
+p2 <- as.factor(p2)
+
+# model 2 assessment
+confusionMatrix(p2,df_test_1$TARGET)
+F1_Score()
+
+# model 3
+rf_model_3 <- train(df_training_1[ , -which(names(df_training_1) %in% c("TARGET"))],
+                     df_training_1$TARGET,
+                     method="gbm",
+                     trControl = fitControl_gbm_2,
+                     tuneGrid = grid_gbm_2)
+
+
+
 
 
 # caret, getting tuning parameters
