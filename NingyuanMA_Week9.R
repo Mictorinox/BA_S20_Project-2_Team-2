@@ -17,10 +17,15 @@ df_cardBalance <- read.csv(path_cardBalance)
 df_previousApplication <- read.csv(path_previousApplication)
 
 
-names(df_train)
-names(df_toScore)
-
 nrow(df_train)
+df_combined <- merge(df_train,df_cardBalance,all.x = T,by = "SK_ID_CURR") #
+df_combined_2 <- merge(df_train,df_previousApplication,all.x = T,by = "SK_ID_CURR")
+nrow(df_combined_2)
+
+df_combined_double <-merge(df_combined,df_previousApplication,all.x = T) 
+nrow(df_cardBalance)
+
+
 
 for( i in 1:length(names(df_cardBalance)))
 {
@@ -120,7 +125,7 @@ print(model_1_opt_oob)
 # although predictive performance is reasonably competitive. 
 # Using cv_folds>1 when calling gbm usually results in improved predictive performance.
 
-# TODO: data partition
+# TODO: balance data partition
 p1 <- predict(gbm_1,df_test_1,n.trees = ntree_model_1_opt_cv,type="response")
 plot(seq(-1,1,length=length(sort(p1))),sort(p1))
 predicted_1 <- ifelse(p1>0.5,1,0)
@@ -144,4 +149,4 @@ confusionMatrix(predictedBinaries_1,df_test_1$TARGET)
 
 
 # caret, getting tuning parameters
-modelLookup("gbm")
+?getModelInfo()
