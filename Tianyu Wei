@@ -1,1 +1,217 @@
+# Read file
+getwd()
+setwd("C:/Users/25367/Desktop/BA/Project2")
+application_train <- read.csv("application_train_S20.csv",header=TRUE, stringsAsFactors=FALSE)
+
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(dplyr)
+
+# Check Data Quality
+library(dataQualityR)   #dataquality package
+checkDataQuality(data = application_train, 
+                 out.file.num ="dq_num.csv", 
+                 out.file.cat= "dq_cat.csv")   #filename for report
+dq_num<-read.csv("C:/Users/25367/Desktop/BA/Project2/dq_num.csv")
+dq_cat<-read.csv("C:/Users/25367/Desktop/BA/Project2/dq_cat.csv")
+View(dq_num)   
+View(dq_cat)
+
+# Filtering variables
+library(naniar)
+vis_miss(application_train, warn_large_data=FALSE)
+
+missing_percentage<-apply(application_train, 2, function(col)sum(is.na(col))/length(col))
+missing_percentage[missing_percentage>0.2]
+missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.2])
+index<-rownames(missing_percentage_df)
+application_train_2<- application_train[,!(names(application_train) %in% index)]
+
+correlation_percentage<-apply(application_train_2, 2, function(col)chisq.test(application_train_2$TARGET,col)$p.value)
+correlation_percentage
+
+correlation_percentage[correlation_percentage>0.05]
+correlation_df<-as.data.frame(correlation_percentage[correlation_percentage>0.05])
+index<-rownames(correlation_df)
+index_2<-c(index,"TARGET")
+application_train_3<- application_train_2[,(names(application_train_2) %in% index_2)]
+colnames(application_train_3)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR)
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR)
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+table(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY)
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_DAY)
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new)
+table(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK)
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK)
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+
+to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
+application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
+application_train_4  <- na.omit(application_train_4) 
+
+application_train_4$TARGET <- as.factor(application_train_4$TARGET)
+
+cc_balance <- read.csv("credit_card_balance.csv",header=TRUE, stringsAsFactors=FALSE)
+
+#check if any SK_ID_PREV is in SK_ID_CURR
+ifelse(any(cc_balance$SK_ID_PREV == cc_balance$SK_ID_CURR), "TRUE","FALSE")
+
+#To process numeric data, using mean value for variables for different id
+cc_num <- cc_balance[,c(2:20,22:23)] %>% group_by(SK_ID_CURR) %>% summarise_all(funs(mean))
+
+#To process char data, count frequency
+cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
+cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
+names(cc_char)[1]<- "SK_ID_CURR"
+
+#merge sets, append to application_train_4, from column 21
+application_train_5 <- merge(application_train_4,
+                             merge(cc_num, cc_char, by="SK_ID_CURR"),
+                             all.y=TRUE, by="SK_ID_CURR")
+
+str(application_train_5)  
+
+# Imbalance classification
+table(application_train_5$TARGET)
+prop.table(table(application_train_5$TARGET))
+
+#Sampling Method: ROSE
+#Create training dataset with a 70/30 split
+set.seed(123)
+index <- createDataPartition(application_train_5$TARGET, p=0.7, list=FALSE)
+train.imbalanced <- application_train_5[ index,] 
+test<- application_train_5[ -index,] 
+
+table(train.imbalanced$TARGET)
+prop.table(table(train.imbalanced$TARGET))  #TARGET is the minority class at 8.6%
+barplot(prop.table(table(train.imbalanced$TARGET)))
+
+# Oversampling
+library(ROSE)
+train.over<-ovun.sample(TARGET~., data = train.imbalanced, method = "over")$data  
+prop.table(table(train.over$TARGET))
+#        1         2 
+# 0.4958672 0.5041328 
+
+# GBM
+# By using boosting method, We subsequently give more and more weight to hard to classify observations.
+outcomeName <- 'TARGET'
+predictorNames <- names(train.over)[names(train.over) != 'SK_ID_CURR' & names(train.over) != 'TARGET']
+
+set.seed(1234)  # setting seed to reproduce results of random sampling
+split<-(.70)
+library (caret)
+index <- createDataPartition(train.over$TARGET, p=split, list=FALSE) # row indices for training data
+
+train.df <- train.over[ index,]  # model training data
+test.df<- train.over[ -index,]   # test data
+
+fitControl <- trainControl(method = "none")
+
+gbm<-train(train.df[,predictorNames],train.df[,outcomeName],
+           method='gbm',
+           trControl=fitControl)
+
+library(gbm)
+gbmImp<-varImp(gbm) 
+gbmImp
+plot(gbmImp)
+
+# measuring performance
+gbm.predict<-predict(gbm,test.df[,predictorNames],type="raw")
+confusionMatrix(gbm.predict,test.df[,outcomeName])
+f_score <- 2*(0.6286*0.6698)/(0.6286+0.6698)
+f_score # f1 score = 0.6485463
+
+# draw ROC curve and perform visual check for better accurancy/performacen
+library(pROC)
+gbm.probs <- predict(gbm,test.df[,predictorNames],type="prob")  
+gbm.probs
+
+gbm.plot<-plot(roc(test.df$TARGET,gbm.probs[,2]))
+
+#Model tuning
+gbm.tuned<-train(train.df[,predictorNames],train.df[,outcomeName],
+                 distribution = "bernoulli",
+                 n.trees = 1000,
+                 interaction.depth = 4,
+                 shrinkage = 0.01,
+                 cv.folds = 4)
+
+# measuring performance
+gbm.tuned.predict<-predict(gbm.tuned,test.df[,predictorNames],type="raw")
+confusionMatrix(gbm.tuned.predict,test.df[,outcomeName])
+f1 <- 2*(0.9980*0.9827)/(0.9980+0.9827)
+f1 #F1 score = 0.9902909
+
+# ROC curve
+gbm.tuned.probs <- predict(gbm.tuned,test.df[,predictorNames],type="prob")
+gbm.tuned.plot<-lines(roc(test.df$TARGET,gbm.tuned.probs[,2]), col="red")
+legend("bottomright", legend=c("gbm", "gbm.tuned"), col=c("black", "red"), lwd=2)
+
+gbm.perf(gbm.tuned, method = "cv")
+
+# Variable Importance
+gbmImp.tuned<-varImp(gbm.tuned) 
+gbmImp.tuned
+plot(gbmImp.tuned)
+
+
+
+
+
+
+
+
+
+
+
+
+# WIP
+# create hyperparameter grid
+hyper_grid <- expand.grid(
+  shrinkage = c(.01, .1, .3),
+  interaction.depth = c(1, 3, 5),
+  n.minobsinnode = c(5, 10, 15),
+  bag.fraction = c(.65, .8, 1), 
+  optimal_trees = 0,               # a place to dump results
+  min_RMSE = 0                     # a place to dump results
+)
+
+# total number of combinations
+nrow(hyper_grid)
+## [1] 81
+
+# grid search 
+for(i in 1:nrow(hyper_grid)) {
+  
+# reproducibility
+set.seed(123)
+  
+# train model
+gbm.tune <- gbm(
+    train.df[,predictorNames],train.df[,outcomeName],
+    distribution = "gaussian",
+    n.trees = 5000,
+    interaction.depth = hyper_grid$interaction.depth[i],
+    shrinkage = hyper_grid$shrinkage[i],
+    n.minobsinnode = hyper_grid$n.minobsinnode[i],
+    bag.fraction = hyper_grid$bag.fraction[i],
+    train.fraction = .75)}
+
+
+
+
+
+
+
+
 
