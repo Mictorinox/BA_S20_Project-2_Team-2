@@ -104,7 +104,7 @@ read.csv("D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(pr
 
 # balance the data
 df_train_4$TARGET <- as.integer(df_train_4$TARGET)
-df_train_4_balanced <- ovun.sample(TARGET ~ ., data = df_train_4, p=0.4, N= 50000)$data # 20000 runs rather smooth
+df_train_4_balanced <- ovun.sample(TARGET ~ ., data = df_train_4, p=0.5, N= 50000)$data # 20000 runs rather smooth
 df_train_4_small <- ovun.sample(TARGET ~ ., data = df_train_4, N= 20000)$data
 table(df_train_4_balanced$TARGET)
 prop.table(table(df_train_4_balanced$TARGET))
@@ -255,4 +255,3 @@ df_training_2$TARGET <- as.factor(df_training_2$TARGET)
 confusionMatrix(p_3,df_training_2$TARGET)
 
 # caret, getting tuning parameters
-?getModelInfo()

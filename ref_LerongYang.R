@@ -1,0 +1,179 @@
+application_train <- read.csv("D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv")
+head(application_train)
+
+library(naniar)
+# vis_miss(application_train, warn_large_data=FALSE)
+
+missing_percentage<-apply(application_train, 2, function(col)sum(is.na(col))/length(col))
+missing_percentage[missing_percentage>0.2]
+missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.2])
+index<-rownames(missing_percentage_df)
+application_train_2<- application_train[,!(names(application_train) %in% index)]
+
+correlation_percentage<-apply(application_train_2, 2, function(col)chisq.test(application_train_2$TARGET,col)$p.value)
+# correlation_percentage
+
+correlation_percentage[correlation_percentage>0.05]
+correlation_df<-as.data.frame(correlation_percentage[correlation_percentage>0.05])
+index<-rownames(correlation_df)
+index_2<-c(index,"TARGET")
+application_train_3<- application_train_2[,(names(application_train_2) %in% index_2)]
+# colnames(application_train_3)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR)
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR)
+application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+# table(application_train_3$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY)
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_DAY)
+application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new)
+# table(application_train_3$AMT_REQ_CREDIT_BUREAU_DAY.new)
+
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK<-as.character(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK)
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK),"NULL",application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK)
+application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+# table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+
+library(titanic)
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(RColorBrewer)
+
+to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
+application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
+application_train_4  <- na.omit(application_train_4) 
+
+### Selecting  variables for modeling.  A total of 12 variables with name updates
+library(dplyr)
+#names(application_train_4)
+application_train_4.df <- select(application_train_4,
+                                 "TARGET",
+                                 "AMT_INCOME_TOTAL",
+                                 "DAYS_EMPLOYED",
+                                 "DAYS_REGISTRATION",
+                                 "FLAG_MOBIL",
+                                 "FLAG_CONT_MOBILE",
+                                 "FLAG_EMAIL",
+                                 "LIVE_REGION_NOT_WORK_REGION",
+                                 "FLAG_DOCUMENT_4",
+                                 "FLAG_DOCUMENT_5",
+                                 "FLAG_DOCUMENT_7",
+                                 "FLAG_DOCUMENT_10",
+                                 "FLAG_DOCUMENT_12",
+                                 "FLAG_DOCUMENT_17",
+                                 "FLAG_DOCUMENT_19",
+                                 "FLAG_DOCUMENT_20",
+                                 "AMT_REQ_CREDIT_BUREAU_HOUR.new",
+                                 "AMT_REQ_CREDIT_BUREAU_DAY.new",
+                                 "AMT_REQ_CREDIT_BUREAU_WEEK.new"
+)
+
+# model setup
+outcomeName <- 'TARGET'
+predictorNames <- names(application_train_4.df)[names(application_train_4.df) != outcomeName]
+
+application_train_4.df$TARGET<-as.factor(application_train_4.df$TARGET)
+
+set.seed(1234)  # setting seed to reproduce results of random sampling
+split<-(.70)
+library (caret)
+index <- createDataPartition(application_train_4.df$TARGET, p=split, list=FALSE) 
+
+train.df <- application_train_4.df[ index,]  # model training data
+test.df<- application_train_4.df[ -index,]   # test data
+
+table(train.df$TARGET)
+prop.table(table(train.df$TARGET))  #Apps is the minority class at 5.6%
+#barplot(prop.table(table(train.df$TARGET)))
+
+
+#install.packages("ROSE")
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+
+fitControl <- trainControl(method = "none")  
+
+# RF Model
+train.df.balanced$TARGET<-as.factor(train.df.balanced$TARGET)
+rf<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+          method='rf',
+          trControl=fitControl)
+# p=40% of rare cases
+rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
+#rf.predict
+rf.predict<-as.factor(rf.predict)
+rf.predict<-ifelse(rf.predict==2,1,0)
+rf.predict<-as.factor(rf.predict)
+confusionMatrix(rf.predict,test.df[,outcomeName])
+
+library(MLmetrics)
+F1_Score(test.df[,outcomeName],rf.predict)
+
+#install.packages("ROSE")
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+
+# Model_2：GBM model# p=40% of rare cases
+rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
+#rf.predict
+rf.predict<-as.factor(rf.predict)
+rf.predict<-ifelse(rf.predict==2,1,0)
+rf.predict<-as.factor(rf.predict)
+confusionMatrix(rf.predict,test.df[,outcomeName])
+
+F1_Score(test.df[,outcomeName],rf.predict)
+
+
+# Advanced GBM Tunning
+
+####################  balanced the data from 8% to 40% of rare cases 
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+####################  create pipeline, grid search and model
+train.df.balanced$TARGET<-as.factor(train.df.balanced$TARGET)
+
+fitControl.gbm3 <- trainControl(method = "repeatedcv",
+                                number = 20,
+                                repeats = 5)
+
+gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
+                        n.trees = (1:10)*10, 
+                        shrinkage = 0.1,
+                        n.minobsinnode = 20)
+
+gbm3.tuned<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+                  method='gbm',
+                  trControl=fitControl.gbm3,
+                  tuneGrid = gbm.grid)
+#################### output the prediction and see confustion matrix and F-1
+gbm.tuned.predict<-predict(gbm3.tuned,test.df[,predictorNames],type="raw")
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+gbm.tuned.predict<-ifelse(gbm.tuned.predict==2,1,0)
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+#confusionMatrix accuracy
+confusionMatrix(gbm.tuned.predict,test.df[,outcomeName])
+#f1
+F1_Score(test.df[,outcomeName],gbm.tuned.predict)
+#roc-auc
+library(pROC)
+gbm.tuned.probs <- predict(gbm3.tuned,test.df[,predictorNames],type="prob")    
+auc(test.df[,outcomeName],gbm.tuned.probs[,2])
+
+#################### see the grid search performance 
+library(ggplot2)
+ggplot(gbm3.tuned)
+gbm3.tuned 
