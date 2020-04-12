@@ -2,6 +2,7 @@
 #Mingzi Tian
 #04/09/2020
 
+
 #######################################
 #Load the packages we will use
 library(ggplot2)
@@ -9,17 +10,13 @@ library(dataQualityR)
 library(caret)
 library(naniar)
 library(dplyr)
+library(MLmetrics)
+library(ROSE)
+library(pROC)
 #######################################
 
-getwd()
-setwd("/Users/tian/Desktop/Business Analytics/BA Project 2")
-credit <- read.csv("application_train_s20.csv",header=TRUE, stringsAsFactors=TRUE)
-str(credit)
-summary(credit)
 
 application_train <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/application_train_s20.csv")
-
-vis_miss(application_train, warn_large_data=FALSE)
 
 missing_percentage<-apply(application_train, 2, function(col)sum(is.na(col))/length(col))
 missing_percentage[missing_percentage>0.2]
@@ -56,7 +53,10 @@ to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
 
-##
+
+#########################################################
+#factorlize char columns and normalize numeric columns
+##########################################################  
 application_train_4[,c(2,6:17)] <- lapply(application_train_4[,c(2,6:17)], as.factor)
 
 normalize <- function(x){
@@ -67,66 +67,124 @@ application_train_4[,3:5] <- lapply(application_train_4[,3:5], normalize)
 lapply(application_train_4[,6:20],table)
 str(application_train_4)
 summary(application_train_4)
-##
+
+
 ######################################
 ######################################
-
-#model test
-require(randomForest)
-
-set.seed(2)
-split <- (.75)
+set.seed(1)
+split <- (.8)
 index <- createDataPartition(application_train_4$TARGET, p=split, list=FALSE)
 
 train.df <- application_train_4[index,]
 test.df <- application_train_4[-index,]
 remove(index)
+remove(missing_percentage_df)
+remove(correlation_df)
+remove(application_train_2)
+remove(application_train_3)
 
-##method1 
-fitControl <- trainControl(method="none")
-rf.model <- train(train.df[,3:20], train.df[,2],
-                  method="rf",
-                  trControl=fitControl)
-
-rfImp <- varImp(rf.model) # found option "rfimputate" in dropdown list, check later????
-rfImp
-plot(rfImp)
-
-rf.predict <- predict(rf.model, test.df[,2:20], type="raw")
-rf.predict
-confusionMatrix(rf.predict, test.df[,2])
-
-#method 2
-rf.model2 <- randomForest(TARGET~., train.df[,2:20], ntree=250, nodesize=100)
-rf.model2
-rf.predict2 <- predict(rf.model2, test.df[,3:20], type="class")
-confusionMatrix(rf.predict2, test.df[,2])
-
-#method 3
-str(train.df[,2:20])
-summary(train.df)
-summary(test.df)
-glm.model <- glm(formula=TARGET~.,
-                        data=train.df[,c(2:5,7:20)], family="binomial") 
-
-#Review diagnostic measures
-summary(glm.model)
-
-#Step 3: Calculate prediction accuracy and error rates
-response<- ifelse(predict(glm.model, test.df[,c(2:5,7:20)], type = "response")>.5, 2, 1)  # predict distance
-
-actuals_preds <- data.frame(cbind(actuals=test.df$TARGET, predicted=response))  # make actuals_predicteds dataframe.
-head(actuals_preds)
-
-# simple correlation between  actuals vs predicted is an accuracy measure. 
-# a higher correlation accuracy impliessimilar directional movement
-correlation_accuracy <- cor(actuals_preds)
-correlation_accuracy
+####################  balanced the data from 8% to 40% of minority cases 
+#install.packages("ROSE")
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 40000)$data # this runs!
+prop.table(table(train.df.balanced$TARGET))
 
 
-###############################
-#model 4 
-modelLookup()
+###########################
+# RF Model
+###########################
+fitControl <- trainControl(method = "none")
+
+start.time <- Sys.time()
+rf_1 <-train(train.df.balanced[,3:20],train.df.balanced[,2],
+          method='rf',
+          trControl=fitControl)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+# p=40% of rare cases
+rf.predict<-predict(rf_1,test.df, type="raw")
+
+#rf.predict
+rf.conf <- confusionMatrix(rf.predict,test.df[,2], positive="1")
+rf.conf
+F1_Score(test.df[,2],rf.predict)
+
+#plot roc line
+rf.probs <- predict(rf_1, test.df, type="prob")
+rf.plot<-plot(roc(test.df$TARGET,rf.probs[,2]), col="red")
+legend("bottomright", legend=c("rf"), col=c("red"), lwd=2)
+
+
+################################
+# RF Model tuned 
+################################
+modelLookup(model="rf")
+fitControl <- trainControl(method="repeatedcv", number=10, repeats=3)
+mtry <- sqrt(ncol(train.df.balanced[,3:20]))
+tunegrid <- expand.grid(.mtry=mtry)
+
+start.time <- Sys.time()
+rf_2 <-train(train.df.balanced[,3:20], 
+          train.df.balanced[,2],
+          method='rf',
+          tuneGrid=tunegrid,
+          trControl=fitControl)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+# p=40% of rare cases
+rf.predict<-predict(rf_2, test.df,type="raw")
+#rf.predict
+rf.conf2 <- confusionMatrix(rf.predict,test.df[,2], positive="1")
+rf.conf2
+rf.conf
+F1_Score(test.df[,2],rf.predict)
+rf_2
+
+#plot roc line
+rf.probs_1 <- predict(rf_1,test.df,type="prob")
+rf.probs_2 <- predict(rf_2,test.df,type="prob")
+rf.plot<-plot(roc(test.df$TARGET,rf.probs_1[,2]), col="red")
+rf.plot.tuned <-lines(roc(test.df$TARGET,rf.probs_2[,2]), col="orange")
+legend("bottomright", legend=c("rf","rf tuned"), col=c("red","orange"), lwd=2)
+
+
+###########################################
+#Advanced GBM Tunning
+####################  create pipeline, grid search and model
+fitControl.gbm3 <- trainControl(method = "repeatedcv",
+                                number = 10,
+                                repeats = 5)
+
+gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
+                        n.trees = 5000, 
+                        shrinkage = 0.05,
+                        n.minobsinnode = 30)
+
+gbm3.tuned<-train(train.df.balanced[,3:20],train.df.balanced[,2],
+                  method='gbm',
+                  trControl=fitControl.gbm3,
+                  tuneGrid = gbm.grid)
+#################### output the prediction and see confustion matrix and F-1
+gbm.tuned.predict<-predict(gbm3.tuned,test.df[,3:20],type="raw")
+#confusionMatrix accuracy
+gbm.conf <- confusionMatrix(gbm.tuned.predict,test.df[,2])
+#f1
+F1_Score(test.df[,2],gbm.tuned.predict)
+
+library(pROC)
+rf.probs <- predict(rf,test.df[,3:20],type="prob")
+gbm.probs <- predict(gbm3.tuned,test.df[,3:20],type="prob")    
+ 
+gbm.plot<-plot(roc(test.df$TARGET,gbm.probs[,2]))
+rf.plot<-lines(roc(test.df$TARGET,rf.probs[,2]), col="green")
+legend("bottomright", legend=c("rf", "gbm"), col=c("blue", "black"), lwd=2)
+                              
+
+###########################################
+#GBM Tuned 2 (modification of parameters)
+####################                           
 require(gbm)
 gbm.model <- gbm(
   TARGET~ ., 
@@ -146,28 +204,13 @@ gbm.model <- gbm(
 predict <- predict.gbm (gbm.model, test.df[,c(2:5,7:20)], n.trees = 200, type = "response")
 confusionMatrix(predict, test.df[,2])
 
-#################################################
-#no preprocessing
-application_train <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/application_train_s20.csv"
-                              ,header=TRUE, stringsAsFactors=TRUE)
-application_train$TARGET <- as.factor(application_train$TARGET)
-ifelse(application_train <- sapply(application_train, 
-                                   function(x) length(levels(x))) == 1, "DROP", "NODROP")
-str(application_train)
-set.seed(3)
-split <- (.75)
-index <- createDataPartition(application_train$TARGET, p=split, list=FALSE)
+                              
+########################################################
+########################################################
+#credit card balance merging
+########################################################
+########################################################
 
-train.df <- application_train[index,]
-test.df <- application_train[-index,]
-remove(index)
-summary(train.df[,-1])
-
-glm.model <- glm(formula=TARGET~.,
-                 data=application_train[,-1], family="binomial") 
-
-
-#credit card balance
 cc_balance <- read.csv("credit_card_balance.csv",header=TRUE, stringsAsFactors=FALSE)
 str(cc_balance)
 
@@ -186,5 +229,9 @@ names(cc_char)[1]<- "SK_ID_CURR"
 application_train_5 <- merge(application_train_4,
                              merge(cc_num, cc_char, by="SK_ID_CURR"),
                              all.y=TRUE, by="SK_ID_CURR")
-str(application_train_5)                                
+str(application_train_5)
+
+########################################################
+########################################################
+
                                
