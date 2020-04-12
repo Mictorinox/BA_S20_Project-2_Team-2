@@ -118,3 +118,121 @@ confusionMatrix(gbm.predict,test.df[,outcomeName])
 #recall=0.9577977,precision=0.6050494
 #F Score=2*(0.9577977*0.6050494)/(0.9577977+0.6050494)=0.7416144
 #Accuracy : 0.6019  
+
+
+#----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+#input credit_card_balance dataset and merge
+
+cc_balance <- read.csv("~/Downloads/credit_card_balance.csv",header=TRUE, stringsAsFactors=FALSE)
+str(cc_balance)
+
+#check if any SK_ID_PREV is in SK_ID_CURR
+ifelse(any(cc_balance$SK_ID_PREV == cc_balance$SK_ID_CURR), "TRUE","FALSE")
+
+#To process numeric data, using mean value for variables for different id
+cc_num <- cc_balance[,c(2:20,22:23)] %>% group_by(SK_ID_CURR) %>% summarise_all(funs(mean))
+
+#To process char data, count frequency
+cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
+cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
+names(cc_char)[1]<- "SK_ID_CURR"
+
+#merge sets, append to application_train_4, from column 21
+application_train_5 <- merge(application_train_4,
+                             merge(cc_num, cc_char, by="SK_ID_CURR"),
+                             all.y=TRUE, by="SK_ID_CURR")
+str(application_train_5)
+
+application_train_5.df <- select(application_train_5,
+                                 "TARGET",
+                                 "AMT_INCOME_TOTAL",
+                                 "DAYS_EMPLOYED",
+                                 "DAYS_REGISTRATION",
+                                 "FLAG_MOBIL",
+                                 "FLAG_CONT_MOBILE",
+                                 "FLAG_EMAIL",
+                                 "LIVE_REGION_NOT_WORK_REGION",
+                                 "FLAG_DOCUMENT_4",
+                                 "FLAG_DOCUMENT_5",
+                                 "FLAG_DOCUMENT_7",
+                                 "FLAG_DOCUMENT_10",
+                                 "FLAG_DOCUMENT_12",
+                                 "FLAG_DOCUMENT_17",
+                                 "FLAG_DOCUMENT_19",
+                                 "FLAG_DOCUMENT_20",
+                                 "AMT_REQ_CREDIT_BUREAU_HOUR.new",
+                                 "AMT_REQ_CREDIT_BUREAU_DAY.new",
+                                 "AMT_REQ_CREDIT_BUREAU_WEEK.new",
+                                 "MONTHS_BALANCE",
+                                 "AMT_BALANCE",
+                                 "AMT_CREDIT_LIMIT_ACTUAL",
+                                 "AMT_DRAWINGS_ATM_CURRENT",
+                                 "AMT_DRAWINGS_CURRENT",
+                                 "AMT_DRAWINGS_OTHER_CURRENT",
+                                 "AMT_DRAWINGS_POS_CURRENT",
+                                 "AMT_INST_MIN_REGULARITY",
+                                 "AMT_PAYMENT_CURRENT",
+                                 "AMT_PAYMENT_TOTAL_CURRENT",
+                                 "AMT_RECEIVABLE_PRINCIPAL",
+                                 "AMT_RECIVABLE",
+                                 "AMT_TOTAL_RECEIVABLE",
+                                 "CNT_DRAWINGS_ATM_CURRENT",
+                                 "CNT_DRAWINGS_CURRENT",
+                                 "CNT_DRAWINGS_OTHER_CURRENT",
+                                 "CNT_DRAWINGS_POS_CURRENT",
+                                 "CNT_INSTALMENT_MATURE_CUM",
+                                 "SK_DPD",
+                                 "SK_DPD_DEF",
+                                 "Active",
+                                 "Approved",
+                                 "Completed",
+                                 "Demand",
+                                 "Refused",
+                                 "Sent.proposal",
+                                 "Signed"
+)
+
+
+# model setup
+outcomeName <- 'TARGET'
+predictorNames <- names(application_train_5.df)[names(application_train_5.df) != outcomeName]
+
+application_train_5.df$TARGET<-as.factor(application_train_5.df$TARGET)
+
+set.seed(1234)  # setting seed to reproduce results of random sampling
+split<-(.70)
+library (caret)
+index <- createDataPartition(application_train_5.df$TARGET, p=split, list=FALSE) 
+
+train.df <- application_train_5.df[ index,]  # model training data
+test.df<- application_train_5.df[ -index,]   # test data
+
+table(train.df$TARGET)
+prop.table(table(train.df$TARGET))  #Apps is the minority class at 5.6%
+#barplot(prop.table(table(train.df$TARGET)))
+
+
+#install.packages("ROSE")
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
+
+fitControl <- trainControl(method = "none")  
+
+# RF Model
+train.df.balanced$TARGET<-as.factor(train.df.balanced$TARGET)
+rf<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+          method='rf',
+          trControl=fitControl)
+
+# p=40% of rare cases
+rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
+
+#Error: Error in predict.randomForest(modelFit, newdata) : 
+  missing values in newdata 
+#why?
+
