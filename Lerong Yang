@@ -35,9 +35,67 @@ application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(application_t
 application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 
+library(titanic)
+library(rpart)
+library(caret)
+library(rpart.plot)
+library(RColorBrewer)
+
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
+
+### Selecting  variables for modeling.  A total of 12 variables with name updates
+library(dplyr)
+#names(application_train_4)
+application_train_4.df <- select(application_train_4,
+                                 "TARGET",
+                                 "AMT_INCOME_TOTAL",
+                                 "DAYS_EMPLOYED",
+                                 "DAYS_REGISTRATION",
+                                 "FLAG_MOBIL",
+                                 "FLAG_CONT_MOBILE",
+                                 "FLAG_EMAIL",
+                                 "LIVE_REGION_NOT_WORK_REGION",
+                                 "FLAG_DOCUMENT_4",
+                                 "FLAG_DOCUMENT_5",
+                                 "FLAG_DOCUMENT_7",
+                                 "FLAG_DOCUMENT_10",
+                                 "FLAG_DOCUMENT_12",
+                                 "FLAG_DOCUMENT_17",
+                                 "FLAG_DOCUMENT_19",
+                                 "FLAG_DOCUMENT_20",
+                                 "AMT_REQ_CREDIT_BUREAU_HOUR.new",
+                                 "AMT_REQ_CREDIT_BUREAU_DAY.new",
+                                 "AMT_REQ_CREDIT_BUREAU_WEEK.new"
+                                 )
+                                 
+ model setup
+outcomeName <- 'TARGET'
+predictorNames <- names(application_train_4.df)[names(application_train_4.df) != outcomeName]
+
+application_train_4.df$TARGET<-as.factor(application_train_4.df$TARGET)
+
+set.seed(1234)  # setting seed to reproduce results of random sampling
+split<-(.70)
+library (caret)
+index <- createDataPartition(application_train_4.df$TARGET, p=split, list=FALSE) 
+
+train.df <- application_train_4.df[ index,]  # model training data
+test.df<- application_train_4.df[ -index,]   # test data
+
+table(train.df$TARGET)
+prop.table(table(train.df$TARGET))  #Apps is the minority class at 5.6%
+#barplot(prop.table(table(train.df$TARGET)))
+
+
+#install.packages("ROSE")
+library(ROSE)
+train.df$TARGET<-as.integer(train.df$TARGET)
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
+table(train.df.balanced$TARGET)
+prop.table(table(train.df.balanced$TARGET))
+
 
 fitControl <- trainControl(method = "none")  
 
@@ -65,7 +123,7 @@ table(train.df.balanced$TARGET)
 prop.table(table(train.df.balanced$TARGET))
 
 
-# p=40% of rare cases
+Model_2：GBM model# p=40% of rare cases
 rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
 #rf.predict
 rf.predict<-as.factor(rf.predict)
