@@ -232,9 +232,10 @@ cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONT
 cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
 names(cc_char)[1]<- "SK_ID_CURR"
 
+cc_balance_clean <- merge(cc_num, cc_char, all=TRUE, by="SK_ID_CURR")
+
 #merge sets, append to application_train_4, from column 21
-application_train_5 <- merge(application_train_4,
-                             merge(cc_num, cc_char, by="SK_ID_CURR"),
+application_train_5 <- merge(application_train_4, cc_balance_clean,
                              all.x=TRUE, by="SK_ID_CURR")
 str(application_train_5)
 
