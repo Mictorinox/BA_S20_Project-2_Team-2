@@ -234,4 +234,30 @@ str(application_train_5)
 ########################################################
 ########################################################
 
-                               
+
+########################################################
+########################################################
+# Previous application merging
+########################################################
+########################################################
+
+pre_application <- read.csv("previous_application.csv",header=TRUE, stringsAsFactors=FALSE)
+str(pre_application)
+
+#check any other repetitive variables (only SK_ID_CURR)
+colnames(pre_application)[which(colnames(pre_application) %in% colnames(application_train_5))]
+
+#leave SK_ID as what it is 
+for(i in 3:ncol(pre_application)){
+  if(class(pre_application[,i]) == "character"){
+    pre_application[,i] <- as.factor(pre_application[,i])
+  }
+}
+                              
+#Merge application_train_5 and previous application dataset, because previous applicatons may not
+#lead to the loan in our sample directly, so append every previous application to related SK_ID_CURR row
+#in our sample.
+application_train_6 <- merge(application_train_5, pre_application[,-1], all.x=TRUE, by="SK_ID_CURR")
+str(application_train_6)
+
+#Further feature engineering
