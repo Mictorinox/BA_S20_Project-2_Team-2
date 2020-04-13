@@ -218,7 +218,14 @@ str(cc_balance)
 ifelse(any(cc_balance$SK_ID_PREV == cc_balance$SK_ID_CURR), "TRUE","FALSE")
 
 #To process numeric data, using mean value for variables for different id
-cc_num <- cc_balance[,c(2:20,22:23)] %>% group_by(SK_ID_CURR) %>% summarise_all(funs(mean))
+cc_num <- cc_balance[,c(-1,-21)] %>% group_by(SK_ID_CURR) %>% summarise_all(funs(mean))
+cor_coefficient <- as.data.frame(cor(cc_num[sapply(cc_num, is.numeric)], use="complete.obs"))
+cor_index <- findCorrelation(cor(cor_coefficient),cutoff=0.9)
+cor_index
+cc_num<-subset(cc_num, select=-c(AMT_DRAWINGS_CURRENT, AMT_INST_MIN_REGULARITY,
+                                 AMT_TOTAL_RECEIVABLE,AMT_RECIVABLE, AMT_RECEIVABLE_PRINCIPAL,
+                                 AMT_PAYMENT_CURRENT))
+
 
 #To process char data, count frequency
 cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
@@ -228,12 +235,8 @@ names(cc_char)[1]<- "SK_ID_CURR"
 #merge sets, append to application_train_4, from column 21
 application_train_5 <- merge(application_train_4,
                              merge(cc_num, cc_char, by="SK_ID_CURR"),
-                             all.y=TRUE, by="SK_ID_CURR")
+                             all.x=TRUE, by="SK_ID_CURR")
 str(application_train_5)
-
-########################################################
-########################################################
-
 
 ########################################################
 ########################################################
@@ -241,23 +244,85 @@ str(application_train_5)
 ########################################################
 ########################################################
 
-pre_application <- read.csv("previous_application.csv",header=TRUE, stringsAsFactors=FALSE)
+pre_application <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/previous_application.csv",
+                            header=TRUE, stringsAsFactors=FALSE)
 str(pre_application)
 
 #check any other repetitive variables (only SK_ID_CURR)
-colnames(pre_application)[which(colnames(pre_application) %in% colnames(application_train_5))]
+colnames(pre_application)[which(colnames(pre_application) %in% colnames(application_train))]
 
-#leave SK_ID as what it is 
+#delete column with higher than 0.8 missing percentage
+missing_percentage <- apply(pre_application, 2, function(col)sum(is.na(col))/length(col))
+missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.8])
+index<-rownames(missing_percentage_df)
+pre_application<- pre_application[,!(names(pre_application) %in% index)]
+
 for(i in 3:ncol(pre_application)){
-  if(class(pre_application[,i]) == "character"){
-    pre_application[,i] <- as.factor(pre_application[,i])
-  }
+    if(class(pre_application[,i]) == "character"){
+      pre_application[,i] <- as.factor(pre_application[,i])}
+      else {pre_application[,i] <- as.numeric(pre_application[,i])}
 }
-                              
-#Merge application_train_5 and previous application dataset, because previous applicatons may not
-#lead to the loan in our sample directly, so append every previous application to related SK_ID_CURR row
-#in our sample.
-application_train_6 <- merge(application_train_5, pre_application[,-1], all.x=TRUE, by="SK_ID_CURR")
-str(application_train_6)
 
-#Further feature engineering
+cor_coefficient <- as.data.frame(cor(pre_application[sapply(pre_application, is.numeric)], use="complete.obs"))
+cor_index <- findCorrelation(cor(cor_coefficient),cutoff=0.9)
+cor_index
+
+#cut off variables with correlation > 0.9, delete the one with fewer NA values
+sum(is.na(pre_application$AMT_APPLICATION))
+sum(is.na(pre_application$AMT_CREDIT))
+sum(is.na(pre_application$AMT_GOODS_PRICE))
+pre_application_clean<-subset(pre_application, select=-AMT_GOODS_PRICE) #remove it
+sum(is.na(pre_application$DAYS_TERMINATION))
+sum(is.na(pre_application$DAYS_LAST_DUE))
+pre_application_clean<-subset(pre_application_clean, select=-DAYS_TERMINATION) #remove it
+
+str(pre_application_clean)
+summary(pre_application_clean)
+
+pre_factor <- sapply(pre_application_clean, is.factor)
+pre_factor <- cbind("SK_ID_CURR"=pre_application_clean[,2], pre_application_clean[,pre_factor])
+str(pre_factor)
+
+dfList <- list()
+for(i in 2:ncol(pre_factor)){
+  x <- as.data.frame.matrix(table(pre_factor[,1], pre_factor[,i]))
+  dfList[[i]] <- x
+}
+rm(x)
+
+pre_count <- dfList[[2]]
+for(j in 3:length(dfList)){
+  pre_count <- transform(merge(pre_count, dfList[[j]], all.x=TRUE, by=0), 
+                         row.names=Row.names, Row.names=NULL)
+}
+
+pre_count <- data.frame("SK_ID_CURR"=row.names(pre_count), pre_count, row.names=NULL)
+
+pre_num <- pre_application[,sapply(pre_application, is.numeric)][,-1]
+pre_num <- pre_num %>% group_by(SK_ID_CURR) %>% summarise_all(list(mean))
+
+pre_application_clean <- merge(pre_num, pre_count, all=TRUE, by="SK_ID_CURR")
+
+#Merge application_train_5 and previous application dataset
+application_train_6 <- merge(application_train_5, pre_application_clean, all.x=TRUE, by="SK_ID_CURR")
+
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+
+# Removes all outliers from a data set
+remove_all_outliers <- function(df){
+  # We only want the numeric columns
+  df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
+  df
+}
+application_train_6[,1] <- as.factor(application_train_6[,1])
+application_train_6 <- remove_all_outliers(application_train_6)
+
+#save application train 6
+write.csv(application_train_6, file = "application_train_6.csv", quote = FALSE, row.names = FALSE)
