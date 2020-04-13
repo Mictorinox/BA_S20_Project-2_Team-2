@@ -1,4 +1,9 @@
-application_train <- read.csv("D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv")
+# path for t450s
+path <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
+# path for x1
+path <-"C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
+
+application_train <- read.csv(path)
 head(application_train)
 
 library(naniar)
@@ -44,7 +49,7 @@ library(RColorBrewer)
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
-
+nrow(application_train_4)
 ### Selecting  variables for modeling.  A total of 12 variables with name updates
 library(dplyr)
 #names(application_train_4)
@@ -177,3 +182,4 @@ auc(test.df[,outcomeName],gbm.tuned.probs[,2])
 library(ggplot2)
 ggplot(gbm3.tuned)
 gbm3.tuned 
+
