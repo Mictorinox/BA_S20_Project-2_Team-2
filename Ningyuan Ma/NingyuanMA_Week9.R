@@ -71,27 +71,30 @@ head(df_train)
 df_train_4$SK_ID_CURR
 df_train_4_ac <- df_train_4[,-which(colnames(df_train_4) %in% c("SK_ID_CURR","X"))]
 
+df_train_4_ac <- df_train_4[,-which(colnames(df_train_4) %in% c("SK_ID_CURR","X"))]
 
+names(df_train_complete)
+df_train_complete_ac <- df_train_complete[,-which(colnames(df_train_complete) %in% c("SK_ID_CURR","X"))]
 
 names(df_train_4)
 
-str(df_train_4)
+str(df_train_complete_ac)
 
 
 
 # model setup
 outcomeName <- 'TARGET'
-predictorNames <- names(df_train_4_ac)[names(df_train_4_ac) != outcomeName]
+predictorNames <- names(df_train_complete_ac)[names(df_train_complete_ac) != outcomeName]
 
-df_train_4_ac$TARGET<-as.factor(df_train_4_ac$TARGET)
+df_train_complete_ac$TARGET<-as.factor(df_train_complete_ac$TARGET)
 
 set.seed(1234)  # setting seed to reproduce results of random sampling
 split<-(.70)
 # library (caret)
-index <- createDataPartition(df_train_4_ac$TARGET, p=split, list=FALSE) 
+index <- createDataPartition(df_train_complete_ac$TARGET, p=split, list=FALSE) 
 
-df_training_1 <- df_train_4_ac[ index,]  # model training data
-df_testing_1<- df_train_4_ac[ -index,]   # test data
+df_training_1 <- df_train_complete_ac[ index,]  # model training data
+df_testing_1<- df_train_complete_ac[ -index,]   # test data
 
 table(df_training_1$TARGET)
 prop.table(table(df_training_1$TARGET))  #Apps is the minority class at 5.6%
@@ -128,8 +131,35 @@ gbm3.tuned<-train(df_training_1.balanced[,predictorNames],df_training_1.balanced
                   method='gbm',
                   trControl=fitControl.gbm3,
                   tuneGrid = gbm.grid)
+
+saveRDS(gbm3.tuned,"~/gbm_complete.rds")
+model1 <- readRDS("~/gbm_complete.rds")
+
+summary(gbm3.tuned)
+summary(model1)
 #################### output the prediction and see confustion matrix and F-1
 gbm.tuned.predict<-predict(gbm3.tuned,df_testing_1[,predictorNames],type="raw")
 
 prediction_test<-predict(gbm3.tuned,df_testing_1[,predictorNames],type="prob")
 hist(prediction_test$`1`)
+
+
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+gbm.tuned.predict<-ifelse(gbm.tuned.predict==2,1,0)
+gbm.tuned.predict<-as.factor(gbm.tuned.predict)
+#confusionMatrix accuracy
+confusionMatrix(gbm.tuned.predict,test.df[,outcomeName])
+#f1
+F1_Score(test.df[,outcomeName],gbm.tuned.predict)
+#roc-auc
+library(pROC)
+gbm.tuned.probs <- predict(gbm3.tuned,test.df[,predictorNames],type="prob")    
+auc(test.df[,outcomeName],gbm.tuned.probs[,2])
+
+#################### see the grid search performance 
+library(ggplot2)
+ggplot(gbm3.tuned)
+
+
+
+
