@@ -9,6 +9,11 @@ path_toScore <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/We
 path_cardBalance <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/credit_card_balance.csv"
 path_previousApplication <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/previous_application.csv"
 
+# path for x1
+path_train <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
+path_toScore <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/applications_to_score_S20.csv"
+path_cardBalance <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/credit_card_balance.csv"
+path_previousApplication <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/previous_application.csv"
 
 
 application_train <- read.csv(path_train)
@@ -241,22 +246,6 @@ pre_application_clean <- merge(pre_num, pre_count, all=TRUE, by="SK_ID_CURR")
 
 #Merge application_train_5 and previous application dataset
 application_train_6 <- merge(application_train_5, pre_application_clean, all.x=TRUE, by="SK_ID_CURR")
-
-remove_outliers <- function(x, na.rm = TRUE, ...) {
-  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
-  H <- 1.5 * IQR(x, na.rm = na.rm)
-  y <- x
-  y[x < (qnt[1] - H)] <- NA
-  y[x > (qnt[2] + H)] <- NA
-  y
-}
-
-# Removes all outliers from a data set
-remove_all_outliers <- function(df){
-  # We only want the numeric columns
-  df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
-  df
-}
 
 application_train_6[,-1:-2] <- remove_all_outliers(application_train_6[,-1:-2])
 summary_6 <- as.data.frame.table(summary(application_train_6))
