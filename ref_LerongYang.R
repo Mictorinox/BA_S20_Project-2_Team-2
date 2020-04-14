@@ -106,7 +106,35 @@ train.df$TARGET<-as.integer(train.df$TARGET)
 train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 20000)$data # this runs!
 table(train.df.balanced$TARGET)
 prop.table(table(train.df.balanced$TARGET))
+----------------------------------------------------------------------------------------------------------------
+str(application_train_4)  
+application_train_4[,c(2,6:17)] <- lapply(application_train_4[,c(2,6:17)], as.factor)
 
+str(application_train_4)
+summary(application_train_4)
+remove(correlation_df)
+remove(missing_percentage_df)
+remove(application_train_2)
+
+###############################################
+#define a removing outliers function for further merge
+###############################################
+
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+
+# Removes all outliers from a data set
+remove_all_outliers <- function(df){
+  # We only want the numeric columns
+  df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
+  df
+}
 
 ########################################################
 ########################################################
@@ -115,6 +143,7 @@ prop.table(table(train.df.balanced$TARGET))
 ########################################################
 
 cc_balance <- read.csv(path_cardBalance,header=TRUE, stringsAsFactors=FALSE)
+cc_balance[,-1:-2] <- remove_all_outliers(cc_balance[,-1:-2])
 str(cc_balance)
 
 #check if any SK_ID_PREV is in SK_ID_CURR
@@ -129,17 +158,19 @@ cc_num<-subset(cc_num, select=-c(AMT_DRAWINGS_CURRENT, AMT_INST_MIN_REGULARITY,
                                  AMT_TOTAL_RECEIVABLE,AMT_RECIVABLE, AMT_RECEIVABLE_PRINCIPAL,
                                  AMT_PAYMENT_CURRENT))
 
-
 #To process char data, count frequency
 cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
 cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
+
 names(cc_char)[1]<- "SK_ID_CURR"
 
 cc_balance_clean <- merge(cc_num, cc_char, all=TRUE, by="SK_ID_CURR")
+summary(cc_balance_clean)
 
 #merge sets, append to application_train_4, from column 21
-application_train_5 <- merge(application_train_4, cc_balance_clean,
+application_train_5 <- merge(application_train, cc_balance_clean,
                              all.x=TRUE, by="SK_ID_CURR")
+
 str(application_train_5)
 
 ########################################################
@@ -150,6 +181,7 @@ str(application_train_5)
 
 pre_application <- read.csv(path_previousApplication,
                             header=TRUE, stringsAsFactors=FALSE)
+pre_application[,-1:-2] <- remove_all_outliers(pre_application[,-1:-2])                             
 str(pre_application)
 
 #check any other repetitive variables (only SK_ID_CURR)
@@ -185,7 +217,6 @@ summary(pre_application_clean)
 
 pre_factor <- sapply(pre_application_clean, is.factor)
 pre_factor <- cbind("SK_ID_CURR"=pre_application_clean[,2], pre_application_clean[,pre_factor])
-str(pre_factor)
 
 dfList <- list()
 for(i in 2:ncol(pre_factor)){
@@ -201,10 +232,11 @@ for(j in 3:length(dfList)){
 }
 
 pre_count <- data.frame("SK_ID_CURR"=row.names(pre_count), pre_count, row.names=NULL)
+pre_count <- as.factor(pre_count)
 
 pre_num <- pre_application[,sapply(pre_application, is.numeric)][,-1]
 pre_num <- pre_num %>% group_by(SK_ID_CURR) %>% summarise_all(list(mean))
-
+str(pre_num)
 pre_application_clean <- merge(pre_num, pre_count, all=TRUE, by="SK_ID_CURR")
 
 #Merge application_train_5 and previous application dataset
@@ -225,15 +257,21 @@ remove_all_outliers <- function(df){
   df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
   df
 }
-application_train_6[,1] <- as.factor(application_train_6[,1])
-application_train_6 <- remove_all_outliers(application_train_6)
+
+application_train_6[,-1:-2] <- remove_all_outliers(application_train_6[,-1:-2])
+summary_6 <- as.data.frame.table(summary(application_train_6))
+table(application_train_6$TARGET)
+str(application_train_6)
 
 #save application train 6
 write.csv(application_train_6, file = "application_train_6.csv", quote = FALSE, row.names = FALSE)
+write.csv(pre_application_clean, file = "pre_application_clean.csv", quote = FALSE, row.names = FALSE)
+write.csv(cc_balance_clean, file = "cc_balance_clean.csv", quote = FALSE, row.names = FALSE)
+
+str(application_train_6)
 
 
-
--------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------
 
 fitControl <- trainControl(method = "none")  
 
@@ -318,27 +356,4 @@ auc(test.df[,outcomeName],gbm.tuned.probs[,2])
 #################### see the grid search performance 
 library(ggplot2)
 ggplot(gbm3.tuned)
-<<<<<<< HEAD
-gbm3.tuned 
-=======
-summary(gbm3.tuned) 
 
-library(xgboost)
-
-head(train.df.balanced[,predictorNames])
-head(train.df.balanced[,outcomeName])
-
-ctrl <- trainControl(method = "cv", 
-                     number = 5,                        
-                     allowParallel = TRUE)
-control <- trainControl(method="cv", number=10)
-xgboost4.tuned <- train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
-                   method = "xgbTree",
-                   nrounds = 50,
-                   max_depth = 6,
-                   subsample=0.85,
-                   colsample_bytree=0.7,
-                   eta = 0.1,
-                   trControl = ctrl,
-                   verbose=TRUE)
->>>>>>> 0a613ecdab0c20713fa679ea06baa85a9d5be626
