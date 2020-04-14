@@ -51,6 +51,8 @@ df_train_complete$AMT_REQ_CREDIT_BUREAU_WEEK<-as.numeric(df_train_complete$AMT_R
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR.new","AMT_REQ_CREDIT_BUREAU_DAY.new","AMT_REQ_CREDIT_BUREAU_WEEK.new")
 df_train_complete_converted <- df_train_complete[,-which(names(df_train_complete) %in% to.remove)]
 
+write.csv(df_train_complete_converted,"~/TrainMerged(192variables).csv")
+
 length(critical_variables)
 df_train_complete$TARGET
 critical_variables <- c("DAYS_FIRST_DRAWING","Active","DAYS_FIRST_DUE",
@@ -104,7 +106,7 @@ df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(df_toScore_co
 df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 # factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new, levels = levels(df_train_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new))
 
-
+write.csv(df_toScore_complete,"~/toScore(merged).csv")
 
 df_toScore_selected<-df_toScore_complete[,critical_variables]
 write.csv(df_toScore_selected,path_toScore_selected)
@@ -150,7 +152,7 @@ prop.table(table(df_training_1$TARGET))  #Apps is the minority class at 5.6%
 #install.packages("ROSE")
 # library(ROSE)
 df_training_1$TARGET<-as.integer(df_training_1$TARGET)
-df_training_1.balanced<-ovun.sample(TARGET~., data = df_training_1, p=0.38, N= 1000)$data # this runs!
+df_training_1.balanced<-ovun.sample(TARGET~., data = df_training_1, p=0.40, N= 1000)$data # 20000 runs rather smooth
 table(df_training_1.balanced$TARGET)
 prop.table(table(df_training_1.balanced$TARGET))
 
@@ -165,7 +167,7 @@ fitControl.gbm3 <- trainControl(method = "repeatedcv",
 gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
                         n.trees = (1:10)*10, 
                         shrinkage = 0.1,
-                        n.minobsinnode = 20)
+                        n.minobsinnode = 10)
 
 gbm3.tuned<-train(df_training_1.balanced[,predictorNames],df_training_1.balanced[,outcomeName],
                   method='gbm',
@@ -173,7 +175,7 @@ gbm3.tuned<-train(df_training_1.balanced[,predictorNames],df_training_1.balanced
                   tuneGrid = gbm.grid
                   )
 
-saveRDS(gbm3.tuned,"~/gbm_model8.rds")
+saveRDS(gbm3.tuned,"~/gbm_model12.rds")
 model1 <- readRDS("~/gbm_model.rds")
 
 summary(gbm3.tuned)
@@ -201,7 +203,7 @@ auc(test.df[,outcomeName],gbm.tuned.probs[,2])
 library(ggplot2)
 ggplot(gbm3.tuned)
 
-prediction_toScore <- predict(gbm3.tuned,df_toScore_complete[,critical_variables],type="prob")
+prediction_toScore <- predict(gbm3.tuned,df_toScore_complete,type="prob")
 hist(prediction_toScore$`1`)
 
 
