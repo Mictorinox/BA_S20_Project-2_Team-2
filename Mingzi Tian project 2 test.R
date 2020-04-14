@@ -59,6 +59,26 @@ summary(application_train_4)
 remove(correlation_df)
 remove(missing_percentage_df)
 remove(application_train_2)
+                              
+###############################################
+#define a removing outliers function for further merge
+###############################################
+
+remove_outliers <- function(x, na.rm = TRUE, ...) {
+  qnt <- quantile(x, probs=c(.25, .75), na.rm = na.rm, ...)
+  H <- 1.5 * IQR(x, na.rm = na.rm)
+  y <- x
+  y[x < (qnt[1] - H)] <- NA
+  y[x > (qnt[2] + H)] <- NA
+  y
+}
+
+# Removes all outliers from a data set
+remove_all_outliers <- function(df){
+  # We only want the numeric columns
+  df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
+  df
+}
 
 ########################################################
 ########################################################
@@ -67,6 +87,7 @@ remove(application_train_2)
 ########################################################
 
 cc_balance <- read.csv("credit_card_balance.csv",header=TRUE, stringsAsFactors=FALSE)
+cc_balance[,-1:-2] <- remove_all_outliers(cc_balance[,-1:-2])
 str(cc_balance)
 
 #check if any SK_ID_PREV is in SK_ID_CURR
@@ -104,6 +125,7 @@ str(application_train_5)
 
 pre_application <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/previous_application.csv",
                             header=TRUE, stringsAsFactors=FALSE)
+pre_application[,-1:-2] <- remove_all_outliers(pre_application[,-1:-2])                             
 str(pre_application)
 
 #check any other repetitive variables (only SK_ID_CURR)
