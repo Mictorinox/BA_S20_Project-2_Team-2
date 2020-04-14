@@ -91,7 +91,7 @@ cc_balance_clean <- merge(cc_num, cc_char, all=TRUE, by="SK_ID_CURR")
 summary(cc_balance_clean)
 
 #merge sets, append to application_train_4, from column 21
-application_train_5 <- merge(application_train, cc_balance_clean,
+application_train_5 <- merge(application_train4, cc_balance_clean,
                              all.x=TRUE, by="SK_ID_CURR")
 
 str(application_train_5)
