@@ -18,7 +18,7 @@ library(pROC)
 
 application_train <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/application_train_S20.csv")
 
-missing_percentage<-apply(application_train_6, 2, function(col)sum(is.na(col))/length(col))
+missing_percentage<-apply(application_train, 2, function(col)sum(is.na(col))/length(col))
 missing_percentage
 missing_percentage[missing_percentage>0.2]
 missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.2])
