@@ -50,9 +50,9 @@ for( i in 1:length(df_toScore$SK_ID_CURR))
     result_no <- c(result_no,df_toScore$SK_ID_CURR[i])
 }
 
-
 length(result_yes)
 length(result_no)
+
 
 length(unique(df_toScore$SK_ID_CURR))
 head(df_train)
