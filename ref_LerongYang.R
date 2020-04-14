@@ -299,6 +299,10 @@ gbm3.tuned<-train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeN
                   tuneGrid = gbm.grid)
 #################### output the prediction and see confustion matrix and F-1
 gbm.tuned.predict<-predict(gbm3.tuned,test.df[,predictorNames],type="raw")
+
+prediction_test<-predict(gbm3.tuned,test.df[,predictorNames],type="prob")
+hist(prediction_test$`1`)
+
 gbm.tuned.predict<-as.factor(gbm.tuned.predict)
 gbm.tuned.predict<-ifelse(gbm.tuned.predict==2,1,0)
 gbm.tuned.predict<-as.factor(gbm.tuned.predict)
@@ -314,4 +318,27 @@ auc(test.df[,outcomeName],gbm.tuned.probs[,2])
 #################### see the grid search performance 
 library(ggplot2)
 ggplot(gbm3.tuned)
+<<<<<<< HEAD
 gbm3.tuned 
+=======
+summary(gbm3.tuned) 
+
+library(xgboost)
+
+head(train.df.balanced[,predictorNames])
+head(train.df.balanced[,outcomeName])
+
+ctrl <- trainControl(method = "cv", 
+                     number = 5,                        
+                     allowParallel = TRUE)
+control <- trainControl(method="cv", number=10)
+xgboost4.tuned <- train(train.df.balanced[,predictorNames],train.df.balanced[,outcomeName],
+                   method = "xgbTree",
+                   nrounds = 50,
+                   max_depth = 6,
+                   subsample=0.85,
+                   colsample_bytree=0.7,
+                   eta = 0.1,
+                   trControl = ctrl,
+                   verbose=TRUE)
+>>>>>>> 0a613ecdab0c20713fa679ea06baa85a9d5be626
