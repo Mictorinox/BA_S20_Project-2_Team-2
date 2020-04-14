@@ -26,6 +26,7 @@ path_train6 <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/W
 path_balanceClean <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/cc_balance_clean (1).csv"
 path_applicationClean <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/pre_application_clean (1).csv"
 path_train_4 <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/df_train_4.csv"
+path_train_selected <- "C:/Users/Matyas/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/df_train_selected.csv"
 
  
 df_train <- read.csv(path_train)
@@ -42,6 +43,76 @@ df_applicationClean <- read.csv(path_applicationClean)
 df_train_temp <- merge(df_train_4,df_balanceClean,all.x=T,by = "SK_ID_CURR")
 df_train_complete <- merge(df_train_temp,df_applicationClean,all.x=T,by = "SK_ID_CURR")
 # 
+
+# table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+
+
+
+df_train_complete$TARGET
+
+
+df_train_selected<-df_train_complete[,c("SK_ID_CURR","TARGET","DAYS_FIRST_DRAWING","Active","DAYS_FIRST_DUE",
+                                        "high","XNA.x.1","AMT_REQ_CREDIT_BUREAU_WEEK.new",
+                                        "Computers","AMT_CREDIT_LIMIT_ACTUAL",
+                                        "POS.industry.with.interest","MONTHS_BALANCE",
+                                        "SELLERPLACE_AREA","Regional...Local",
+                                        "DAYS_REGISTRATION","DAYS_EMPLOYED","AMT_ANNUITY",
+                                        "AMT_REQ_CREDIT_BUREAU_HOUR.new",
+                                        "AMT_PAYMENT_TOTAL_CURRENT","FRIDAY",
+                                        "DAYS_DECISION","RATE_DOWN_PAYMENT",
+                                        "Clothing.and.Accessories")]
+
+str(df_train_selected)
+write.csv(df_train_selected,path_train_selected)
+
+df_toScore_temp <- merge(df_toScore,df_balanceClean,all.x=T,by = "SK_ID_CURR")
+df_toScore_complete <- merge(df_toScore_temp,df_applicationClean[,-which(colnames(df_applicationClean) %in% c("AMT_ANNUITY"))],all.x=T,by = "SK_ID_CURR")
+summary(df_toScore_complete$"AMT_ANNUITY")
+summary(df_applicationClean$"AMT_ANNUITY")
+
+df_toScore_complete$
+class(df_train_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+class(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK)
+
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR<-as.character(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR.new<-ifelse(  is.na(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR),"NULL",df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR.new<-as.factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+# table(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_HOUR.new)
+
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY<-as.character(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY.new<-ifelse(  is.na(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY),"NULL",df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY.new<-as.factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY.new)
+# table(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_DAY.new)
+
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK<-as.character(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK),"NULL",df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK)
+df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new)
+critical_variables <- c("DAYS_FIRST_DRAWING","Active","DAYS_FIRST_DUE",
+                        "high","XNA.x.1","AMT_REQ_CREDIT_BUREAU_WEEK.new",
+                        "Computers","AMT_CREDIT_LIMIT_ACTUAL",
+                        "POS.industry.with.interest","MONTHS_BALANCE",
+                        "SELLERPLACE_AREA","Regional...Local",
+                        "DAYS_REGISTRATION","DAYS_EMPLOYED","AMT_ANNUITY",
+                        "AMT_REQ_CREDIT_BUREAU_HOUR.new",
+                        "AMT_PAYMENT_TOTAL_CURRENT","FRIDAY",
+                        "DAYS_DECISION","RATE_DOWN_PAYMENT",
+                        "Clothing.and.Accessories")
+
+
+for(i in 1:length(critical_variables)){
+  if (critical_variables[i] %in% names(df_toScore_complete)){
+    
+  }
+  else
+  {
+    print(critical_variables[i])
+  }  
+}
+
+df_toScore_selected<-df_toScore_complete[,critical_variables]
+
+str(df_toScore_selected)
+write.csv(df_toScore_selected,path_toScore_selected)
 # str(df_train_temp)
 # str()
 # length(df_train_temp$SK_ID_CURR)
