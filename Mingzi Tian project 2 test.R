@@ -25,7 +25,7 @@ missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.2])
 index<-rownames(missing_percentage_df)
 application_train_2<- application_train[,!(names(application_train) %in% index)]
 
-correlation_percentage<-apply(application_train_6, 2, function(col)chisq.test(application_train_6$TARGET,col,simulate.p.value=TRUE)$p.value)
+correlation_percentage<-apply(application_train, 2, function(col)chisq.test(application_train$TARGET,col,simulate.p.value=TRUE)$p.value)
 
 correlation_percentage[correlation_percentage>0.05]
 correlation_df<-as.data.frame(correlation_percentage[correlation_percentage>0.05])
