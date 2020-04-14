@@ -16,16 +16,16 @@ library(pROC)
 #######################################
 
 
-application_train <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/application_train_s20.csv")
+application_train <- read.csv("/Users/tian/Desktop/Business Analytics/BA Project 2/application_train_S20.csv")
 
 missing_percentage<-apply(application_train, 2, function(col)sum(is.na(col))/length(col))
+missing_percentage
 missing_percentage[missing_percentage>0.2]
 missing_percentage_df<-as.data.frame(missing_percentage[missing_percentage>0.2])
 index<-rownames(missing_percentage_df)
 application_train_2<- application_train[,!(names(application_train) %in% index)]
 
-correlation_percentage<-apply(application_train_2, 2, function(col)chisq.test(application_train_2$TARGET,col)$p.value)
-correlation_percentage
+correlation_percentage<-apply(application_train_6, 2, function(col)chisq.test(application_train_6$TARGET,col,simulate.p.value=TRUE)$p.value)
 
 correlation_percentage[correlation_percentage>0.05]
 correlation_df<-as.data.frame(correlation_percentage[correlation_percentage>0.05])
@@ -52,159 +52,14 @@ table(application_train_3$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK")
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
-
-
-#########################################################
-#factorlize char columns and normalize numeric columns
-##########################################################  
 application_train_4[,c(2,6:17)] <- lapply(application_train_4[,c(2,6:17)], as.factor)
 
-normalize <- function(x){
-  return((x-min(x))/(max(x)-min(x)))
-}
-application_train_4[,3:5] <- lapply(application_train_4[,3:5], normalize)
-
-lapply(application_train_4[,6:20],table)
 str(application_train_4)
 summary(application_train_4)
-
-
-######################################
-######################################
-set.seed(1)
-split <- (.8)
-index <- createDataPartition(application_train_4$TARGET, p=split, list=FALSE)
-
-train.df <- application_train_4[index,]
-test.df <- application_train_4[-index,]
-remove(index)
-remove(missing_percentage_df)
 remove(correlation_df)
+remove(missing_percentage_df)
 remove(application_train_2)
-remove(application_train_3)
 
-####################  balanced the data from 8% to 40% of minority cases 
-#install.packages("ROSE")
-train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.4, N= 40000)$data # this runs!
-prop.table(table(train.df.balanced$TARGET))
-
-
-###########################
-# RF Model
-###########################
-fitControl <- trainControl(method = "none")
-
-start.time <- Sys.time()
-rf_1 <-train(train.df.balanced[,3:20],train.df.balanced[,2],
-          method='rf',
-          trControl=fitControl)
-end.time <- Sys.time()
-time.taken <- end.time - start.time
-time.taken
-
-# p=40% of rare cases
-rf.predict<-predict(rf_1,test.df, type="raw")
-
-#rf.predict
-rf.conf <- confusionMatrix(rf.predict,test.df[,2], positive="1")
-rf.conf
-F1_Score(test.df[,2],rf.predict)
-
-#plot roc line
-rf.probs <- predict(rf_1, test.df, type="prob")
-rf.plot<-plot(roc(test.df$TARGET,rf.probs[,2]), col="red")
-legend("bottomright", legend=c("rf"), col=c("red"), lwd=2)
-
-
-################################
-# RF Model tuned 
-################################
-modelLookup(model="rf")
-fitControl <- trainControl(method="repeatedcv", number=10, repeats=3)
-mtry <- sqrt(ncol(train.df.balanced[,3:20]))
-tunegrid <- expand.grid(.mtry=mtry)
-
-start.time <- Sys.time()
-rf_2 <-train(train.df.balanced[,3:20], 
-          train.df.balanced[,2],
-          method='rf',
-          tuneGrid=tunegrid,
-          trControl=fitControl)
-end.time <- Sys.time()
-time.taken <- end.time - start.time
-time.taken
-# p=40% of rare cases
-rf.predict<-predict(rf_2, test.df,type="raw")
-#rf.predict
-rf.conf2 <- confusionMatrix(rf.predict,test.df[,2], positive="1")
-rf.conf2
-rf.conf
-F1_Score(test.df[,2],rf.predict)
-rf_2
-
-#plot roc line
-rf.probs_1 <- predict(rf_1,test.df,type="prob")
-rf.probs_2 <- predict(rf_2,test.df,type="prob")
-rf.plot<-plot(roc(test.df$TARGET,rf.probs_1[,2]), col="red")
-rf.plot.tuned <-lines(roc(test.df$TARGET,rf.probs_2[,2]), col="orange")
-legend("bottomright", legend=c("rf","rf tuned"), col=c("red","orange"), lwd=2)
-
-
-###########################################
-#Advanced GBM Tunning
-####################  create pipeline, grid search and model
-fitControl.gbm3 <- trainControl(method = "repeatedcv",
-                                number = 10,
-                                repeats = 5)
-
-gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
-                        n.trees = 5000, 
-                        shrinkage = 0.05,
-                        n.minobsinnode = 30)
-
-gbm3.tuned<-train(train.df.balanced[,3:20],train.df.balanced[,2],
-                  method='gbm',
-                  trControl=fitControl.gbm3,
-                  tuneGrid = gbm.grid)
-#################### output the prediction and see confustion matrix and F-1
-gbm.tuned.predict<-predict(gbm3.tuned,test.df[,3:20],type="raw")
-#confusionMatrix accuracy
-gbm.conf <- confusionMatrix(gbm.tuned.predict,test.df[,2])
-#f1
-F1_Score(test.df[,2],gbm.tuned.predict)
-
-library(pROC)
-rf.probs <- predict(rf,test.df[,3:20],type="prob")
-gbm.probs <- predict(gbm3.tuned,test.df[,3:20],type="prob")    
- 
-gbm.plot<-plot(roc(test.df$TARGET,gbm.probs[,2]))
-rf.plot<-lines(roc(test.df$TARGET,rf.probs[,2]), col="green")
-legend("bottomright", legend=c("rf", "gbm"), col=c("blue", "black"), lwd=2)
-                              
-
-###########################################
-#GBM Tuned 2 (modification of parameters)
-####################                           
-require(gbm)
-gbm.model <- gbm(
-  TARGET~ ., 
-  distribution = "adaboost", 
-  data = train.df[,c(2:5,7:20)], 
-  #var.monotone = NULL,
-  n.trees = 200,
-  interaction.depth = 4,
-  n.minobsinnode = 30,
-  shrinkage = 0.05,
-  bag.fraction = 0.2,
-  train.fraction = 0.8,
-  #cv.folds=5,
-  #keep.data = TRUE,
-  verbose = TRUE)
-
-predict <- predict.gbm (gbm.model, test.df[,c(2:5,7:20)], n.trees = 200, type = "response")
-confusionMatrix(predict, test.df[,2])
-
-                              
 ########################################################
 ########################################################
 #credit card balance merging
@@ -226,17 +81,19 @@ cc_num<-subset(cc_num, select=-c(AMT_DRAWINGS_CURRENT, AMT_INST_MIN_REGULARITY,
                                  AMT_TOTAL_RECEIVABLE,AMT_RECIVABLE, AMT_RECEIVABLE_PRINCIPAL,
                                  AMT_PAYMENT_CURRENT))
 
-
 #To process char data, count frequency
 cc_char <- as.data.frame.matrix(table(cc_balance$SK_ID_CURR,cc_balance$NAME_CONTRACT_STATUS))
 cc_char <- data.frame(row.names(cc_char), cc_char, row.names=NULL)
+
 names(cc_char)[1]<- "SK_ID_CURR"
 
 cc_balance_clean <- merge(cc_num, cc_char, all=TRUE, by="SK_ID_CURR")
+summary(cc_balance_clean)
 
 #merge sets, append to application_train_4, from column 21
 application_train_5 <- merge(application_train_4, cc_balance_clean,
                              all.x=TRUE, by="SK_ID_CURR")
+
 str(application_train_5)
 
 ########################################################
@@ -282,7 +139,6 @@ summary(pre_application_clean)
 
 pre_factor <- sapply(pre_application_clean, is.factor)
 pre_factor <- cbind("SK_ID_CURR"=pre_application_clean[,2], pre_application_clean[,pre_factor])
-str(pre_factor)
 
 dfList <- list()
 for(i in 2:ncol(pre_factor)){
@@ -298,10 +154,11 @@ for(j in 3:length(dfList)){
 }
 
 pre_count <- data.frame("SK_ID_CURR"=row.names(pre_count), pre_count, row.names=NULL)
+pre_count <- as.factor(pre_count)
 
 pre_num <- pre_application[,sapply(pre_application, is.numeric)][,-1]
 pre_num <- pre_num %>% group_by(SK_ID_CURR) %>% summarise_all(list(mean))
-
+str(pre_num)
 pre_application_clean <- merge(pre_num, pre_count, all=TRUE, by="SK_ID_CURR")
 
 #Merge application_train_5 and previous application dataset
@@ -322,8 +179,134 @@ remove_all_outliers <- function(df){
   df[,sapply(df, is.numeric)] <- lapply(df[,sapply(df, is.numeric)], remove_outliers)
   df
 }
-application_train_6[,1] <- as.factor(application_train_6[,1])
-application_train_6 <- remove_all_outliers(application_train_6)
+
+application_train_6[,-1:-2] <- remove_all_outliers(application_train_6[,-1:-2])
+summary_6 <- as.data.frame.table(summary(application_train_6))
+table(application_train_6$TARGET)
+str(application_train_6)
 
 #save application train 6
 write.csv(application_train_6, file = "application_train_6.csv", quote = FALSE, row.names = FALSE)
+write.csv(pre_application_clean, file = "pre_application_clean.csv", quote = FALSE, row.names = FALSE)
+write.csv(cc_balance_clean, file = "cc_balance_clean.csv", quote = FALSE, row.names = FALSE)
+
+str(application_train_6)
+######################################
+######################################
+set.seed(1)
+split <- (.7)
+index <- createDataPartition(application_train_4$TARGET, p=split, list=FALSE)
+
+train.df <- application_train_4[index,]
+test.df <- application_train_4[-index,]
+
+start.time <- Sys.time()
+train.df.smote <- SMOTE(TARGET ~ ., train.df
+                             ,k = 5
+                             ,perc.over=500,perc.under=200)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+remove(index)
+remove(missing_percentage_df)
+remove(correlation_df)
+remove(application_train_2)
+remove(application_train_3)
+
+####################  balanced the data from 8% to 40% of minority cases 
+#install.packages("ROSE")
+train.df.balanced<-ovun.sample(TARGET~., data = train.df, p=0.40, N= 50000)$data # this runs!
+prop.table(table(train.df.balanced$TARGET))
+
+
+###########################
+# RF Model
+###########################
+fitControl <- trainControl(method = "none")
+
+start.time <- Sys.time()
+rf_1 <-train(train.df.smote[,3:20],train.df.smote[,2],
+          method='rf',
+          trControl=fitControl)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+# p=40% of rare cases
+rf.predict<-predict(rf_1,test.df, type="raw")
+
+#rf.predict
+rf.conf <- confusionMatrix(rf.predict,test.df[,2], positive="1")
+rf.conf
+F1_Score(test.df[,2],rf.predict)
+
+#plot roc line
+rf.probs <- predict(rf_1, test.df, type="prob")
+rf.plot<-plot(roc(test.df$TARGET,rf.probs[,2]), col="red")
+legend("bottomright", legend=c("rf"), col=c("red"), lwd=2)
+
+
+################################
+# RF Model tuned 
+################################
+modelLookup(model="rf")
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=3)
+mtry <- sqrt(ncol(train.df.balanced[,3:20]))
+tunegrid <- expand.grid(.mtry=mtry)
+
+start.time <- Sys.time()
+rf_2 <-train(train.df.balanced[,3:20], 
+          train.df.balanced[,2],
+          method='rf',
+          tuneGrid=tunegrid,
+          trControl=fitControl)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+# p=40% of rare cases
+rf.predict<-predict(rf_2, test.df,type="raw")
+#rf.predict
+rf.conf2 <- confusionMatrix(rf.predict,test.df[,2], positive="1")
+rf.conf2
+F1_Score(test.df[,2],rf.predict)
+
+#plot roc line
+rf.probs_1 <- predict(rf_1,test.df,type="prob")
+rf.probs_2 <- predict(rf_2,test.df,type="prob")
+rf.plot<-plot(roc(test.df$TARGET,rf.probs_1[,2]), col="red")
+rf.plot.tuned <-lines(roc(test.df$TARGET,rf.probs_2[,2]), col="orange")
+legend("bottomright", legend=c("rf","rf tuned"), col=c("red","orange"), lwd=2)
+
+
+###########################################
+#Advanced GBM Tunning
+####################  create pipeline, grid search and model
+fitControl.gbm3 <- trainControl(method = "repeatedcv",
+                                number = 10,
+                                repeats = 3)
+
+gbm.grid <- expand.grid(interaction.depth = c(3,4,5), 
+                        n.trees = 5000, 
+                        shrinkage = 0.05,
+                        n.minobsinnode = 30)
+
+gbm3.tuned<-train(train.df.balanced[,3:20],train.df.balanced[,2],
+                  method='gbm',
+                  trControl=fitControl.gbm3,
+                  tuneGrid = gbm.grid)
+#################### output the prediction and see confustion matrix and F-1
+gbm.tuned.predict<-predict(gbm3.tuned,test.df[,3:20],type="raw")
+#confusionMatrix accuracy
+gbm.conf <- confusionMatrix(gbm.tuned.predict,test.df[,2])
+#f1
+F1_Score(test.df[,2],gbm.tuned.predict)
+
+library(pROC)
+rf.probs <- predict(rf,test.df[,3:20],type="prob")
+gbm.probs <- predict(gbm3.tuned,test.df[,3:20],type="prob")    
+ 
+gbm.plot<-plot(roc(test.df$TARGET,gbm.probs[,2]))
+rf.plot<-lines(roc(test.df$TARGET,rf.probs[,2]), col="green")
+legend("bottomright", legend=c("rf", "gbm"), col=c("blue", "black"), lwd=2)
+
