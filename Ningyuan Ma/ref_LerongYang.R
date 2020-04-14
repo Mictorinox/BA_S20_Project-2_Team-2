@@ -61,6 +61,9 @@ to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR","AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_
 application_train_4 <- application_train_3[,-which(names(application_train_3) %in% to.remove)]
 application_train_4  <- na.omit(application_train_4) 
 nrow(application_train_4)
+
+write.csv(application_train_4,"D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/df_train_4.csv")
+
 ### Selecting  variables for modeling.  A total of 12 variables with name updates
 library(dplyr)
 #names(application_train_4)
