@@ -5,6 +5,8 @@ library(gbm)
 library(caret)
 library(pROC)
 library(ROSE)
+library(MLmetrics)
+
 
 # path for t450s
 path_train <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/Project 2 External -S20/application_train_S20.csv"
@@ -15,6 +17,10 @@ path_train6 <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Wee
 path_balanceClean <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/cc_balance_clean (1).csv"
 path_applicationClean <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/pre_application_clean (1).csv"
 path_train_4 <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/df_train_4.csv"
+path_toScore_complete <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/toScoreMerged(192variables).csv"
+path_train_complete_converted <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/TrainMerged(192variables).csv"
+path_output <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/3-Dataset/output.csv"
+
 
 
 # path for x1
@@ -34,6 +40,25 @@ df_toScore <- read.csv(path_toScore)
 df_cardBalance <- read.csv(path_cardBalance)
 df_previousApplication <- read.csv(path_previousApplication)
 
+
+result_yes <- c()
+result_no <- c()
+for (i in 1:nrow(df_train)){
+  if (df_train$SK_ID_CURR[i] %in% df_previousApplication$SK_ID_CURR)
+  {
+    result_yes <- c(result_yes,df_toScore$SK_ID_CURR[i])
+  }
+  else
+  {
+    result_no <- c(result_no,df_toScore$SK_ID_CURR[i])
+  }
+}
+length(df_toScore$SK_ID_CURR)
+length(result_yes)
+length(result_no)
+
+
+
 # read new dataset
 df_train6 <- read.csv(path_train6)
 df_train_4 <- read.csv(path_train_4)
@@ -51,21 +76,39 @@ df_train_complete$AMT_REQ_CREDIT_BUREAU_WEEK<-as.numeric(df_train_complete$AMT_R
 to.remove <-c("AMT_REQ_CREDIT_BUREAU_HOUR.new","AMT_REQ_CREDIT_BUREAU_DAY.new","AMT_REQ_CREDIT_BUREAU_WEEK.new")
 df_train_complete_converted <- df_train_complete[,-which(names(df_train_complete) %in% to.remove)]
 
+df_train_complete_converted <- read.csv(path_train_complete_converted)
 write.csv(df_train_complete_converted,"~/TrainMerged(192variables).csv")
 
 length(critical_variables)
 df_train_complete$TARGET
-critical_variables <- c("DAYS_FIRST_DRAWING","Active","DAYS_FIRST_DUE",
-                        "high","XNA.x.1","AMT_REQ_CREDIT_BUREAU_WEEK",
-                        "Computers","AMT_CREDIT_LIMIT_ACTUAL",
-                        "POS.industry.with.interest","MONTHS_BALANCE",
-                        "SELLERPLACE_AREA","Regional...Local",
-                        "DAYS_REGISTRATION","DAYS_EMPLOYED","AMT_ANNUITY",
-                        "AMT_REQ_CREDIT_BUREAU_HOUR",
-                        "AMT_PAYMENT_TOTAL_CURRENT","FRIDAY",
-                        "DAYS_DECISION","RATE_DOWN_PAYMENT",
-                        "Clothing.and.Accessories"
-                        )
+critical_variables <- c("SK_ID_CURR","TARGET","FLAG_MOBIL",
+                      "FLAG_CONT_MOBILE","FLAG_EMAIL","LIVE_REGION_NOT_WORK_REGION",
+                      "FLAG_DOCUMENT_4","FLAG_DOCUMENT_5","FLAG_DOCUMENT_7",
+                      "FLAG_DOCUMENT_10","FLAG_DOCUMENT_12","FLAG_DOCUMENT_17",
+                      "FLAG_DOCUMENT_19","FLAG_DOCUMENT_20","SK_ID_CURR.1",
+                      "CNT_CHILDREN","AMT_INCOME_TOTAL","AMT_CREDIT.x",
+                      "AMT_ANNUITY.x","REGION_POPULATION_RELATIVE","DAYS_BIRTH",
+                      "DAYS_EMPLOYED","DAYS_REGISTRATION","DAYS_ID_PUBLISH",
+                      "CNT_FAM_MEMBERS","REGION_RATING_CLIENT","REGION_RATING_CLIENT_W_CITY",
+                      "HOUR_APPR_PROCESS_START.x","EXT_SOURCE_2","EXT_SOURCE_3",
+                      "OBS_30_CNT_SOCIAL_CIRCLE","DEF_30_CNT_SOCIAL_CIRCLE","OBS_60_CNT_SOCIAL_CIRCLE",
+                      "DEF_60_CNT_SOCIAL_CIRCLE","DAYS_LAST_PHONE_CHANGE","AMT_REQ_CREDIT_BUREAU_HOUR",
+                      "AMT_REQ_CREDIT_BUREAU_DAY","AMT_REQ_CREDIT_BUREAU_WEEK","AMT_REQ_CREDIT_BUREAU_MON",
+                      "AMT_REQ_CREDIT_BUREAU_QRT","SK_ID_PREV","MONTHS_BALANCE",
+                      "AMT_BALANCE","AMT_CREDIT_LIMIT_ACTUAL","AMT_DRAWINGS_CURRENT",
+                      "AMT_PAYMENT_TOTAL_CURRENT","AMT_RECEIVABLE_PRINCIPAL","AMT_RECIVABLE",
+                      "AMT_TOTAL_RECEIVABLE","CNT_DRAWINGS_CURRENT","SK_DPD",
+                      "SK_DPD_DEF","Active","Approved",
+                      "Completed","Demand","Refused",
+                      "Sent.proposal","Signed","Cash.loans",
+                      "Consumer.loans","Revolving.loans","XNA",
+                      "FRIDAY","MONDAY","SATURDAY",
+                      "SUNDAY","THURSDAY","TUESDAY",
+                      "WEDNESDAY","V1","Children",
+                      "Family","Group.of.people","Other_A",
+                      "Other_B","Spouse..partner","Unaccompanied",
+                      "AMT_ANNUITY","AMT_CREDIT","HOUR_APPR_PROCESS_START"
+                      )
 #                         ,
 #                         "AMT_BALANCE","Country.wide",
 #                         "AMT_DRAWINGS_POS_CURRENT",
@@ -106,6 +149,7 @@ df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-ifelse(  is.na(df_toScore_co
 df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new<-as.factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new)
 # factor(df_toScore_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new, levels = levels(df_train_complete$AMT_REQ_CREDIT_BUREAU_WEEK.new))
 
+df_toScore_complete <- read.csv(path_toScore_complete)
 write.csv(df_toScore_complete,"~/toScore(merged).csv")
 
 df_toScore_selected<-df_toScore_complete[,critical_variables]
@@ -126,7 +170,7 @@ length(unique(df_toScore$SK_ID_CURR))
 head(df_train)
 
 names(df_train_complete_converted)
-df_train_complete_converted_ac <- df_train_complete_converted[,-which(colnames(df_train_complete_converted) %in% c("SK_ID_CURR","X"))]
+df_train_complete_converted_ac <- df_train_complete_converted[,-which(colnames(df_train_complete_converted) %in% c("SK_ID_CURR","X","X.1"))]
 str(df_train_complete_converted_ac)
 
 
@@ -176,10 +220,14 @@ gbm3.tuned<-train(df_training_1.balanced[,predictorNames],df_training_1.balanced
                   )
 
 saveRDS(gbm3.tuned,"~/gbm_model12.rds")
-model1 <- readRDS("~/gbm_model.rds")
+
+path_model <- "D:/G-OneDrive/OneDrive/1-NYU/2-Business Analytics/2-Homework/Week 9(project 2)/4-Models/gbm_model13.rds"
+gbm3.tuned <- readRDS(path_model)
+gbm_model3 <- readRDS(path_model)
+summary(gbm_model3)
 
 summary(gbm3.tuned)
-summary(model1)
+
 #################### output the prediction and see confustion matrix and F-1
 gbm.tuned.predict<-predict(gbm3.tuned,df_testing_1[,predictorNames],type="raw")
 
@@ -191,20 +239,29 @@ gbm.tuned.predict<-as.factor(gbm.tuned.predict)
 gbm.tuned.predict<-ifelse(gbm.tuned.predict==2,1,0)
 gbm.tuned.predict<-as.factor(gbm.tuned.predict)
 #confusionMatrix accuracy
-confusionMatrix(gbm.tuned.predict,test.df[,outcomeName])
+confusionMatrix(gbm.tuned.predict,df_testing_1[,outcomeName])
 #f1
-F1_Score(test.df[,outcomeName],gbm.tuned.predict)
+F1_Score(df_testing_1[,outcomeName],gbm.tuned.predict)
 #roc-auc
 library(pROC)
-gbm.tuned.probs <- predict(gbm3.tuned,test.df[,predictorNames],type="prob")    
-auc(test.df[,outcomeName],gbm.tuned.probs[,2])
+gbm.tuned.probs <- predict(gbm3.tuned,df_testing_1[,predictorNames],type="prob")    
+auc(df_testing_1[,outcomeName],gbm.tuned.probs[,2])
+
+5865/(69451+5865)
 
 #################### see the grid search performance 
 library(ggplot2)
 ggplot(gbm3.tuned)
 
 prediction_toScore <- predict(gbm3.tuned,df_toScore_complete,type="prob")
-hist(prediction_toScore$`1`)
+prediction_toScore <- predict(gbm3.tuned,df_toScore_complete,type="raw")
+prediction_toScore<-as.factor(prediction_toScore)
+prediction_toScore<-ifelse(prediction_toScore==2,1,0)
+prediction_toScore<-as.factor(prediction_toScore)
+str(prediction_toScore)
 
 
-
+prediction_output <- data.frame("SK_ID_CURR"=df_toScore_complete$SK_ID_CURR,"TARGET"=prediction_toScore)
+write.csv(prediction_output,path_output)
+write.csv(prediction_toScore$`2`,path_output)
+str(prediction_output)

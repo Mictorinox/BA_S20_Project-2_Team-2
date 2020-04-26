@@ -291,7 +291,7 @@ table(train.df.balanced$TARGET)
 prop.table(table(train.df.balanced$TARGET))
 
 
-# Model_2：GBM model# p=40% of rare cases
+
 rf.predict<-predict(rf,test.df[,predictorNames],type="raw")
 #rf.predict
 rf.predict<-as.factor(rf.predict)
@@ -303,7 +303,7 @@ F1_Score(test.df[,outcomeName],rf.predict)
 
 
 # Advanced GBM Tunning
-
+# Model_2：GBM model# p=40% of rare cases
 ####################  balanced the data from 8% to 40% of rare cases 
 library(ROSE)
 train.df$TARGET<-as.integer(train.df$TARGET)
