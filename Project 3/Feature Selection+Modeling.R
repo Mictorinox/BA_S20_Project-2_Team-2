@@ -25,7 +25,8 @@ ctypes <- cols(fullVisitorId = col_character(),
 ###Data extraction
 message("Data Extraction")
 tr0 <- read_csv("D:\\MingziTian\\BA\\Project 3 team 4\\train_yes_v6.csv",col_types=ctypes)
-#tr0_test <- read_csv("D:\\MingziTian\\BA\\Project 3 team 4\\test_yes_v6.csv",col_types=ctypes)
+tr0_test <- read_csv("D:\\MingziTian\\BA\\Project 3 team 4\\test_yes_v6.csv",col_types=ctypes)
+#tr0 <- read.csv("D:\\MingziTian\\BA\\Project 3 team 4\\combined_yes_v10.csv",header=T)
 str(tr0)
 tr1 <- tr0
 #te0 <- read_csv("F:\\google_test.csv", col_types = ctypes)
@@ -47,7 +48,10 @@ parse <- . %>%
   select(-device, -geoNetwork, -trafficSource, -totals) #,-customDimensions,-hits)
 
 message("Further cleaning")
-tr_full <- parse(tr0)
+tr <- parse(tr0)
+tr_test <- parse(tr0_test)
+tr_test <- tr_test %>% select(-IF_Customer)
+tr_full <- rbind(tr, tr_test)
 tr_full <- as.data.frame(tr_full)
 tr_full$totalTransactionRevenue <- as.numeric(tr_full$totalTransactionRevenue)
 tr_full$totalTransactionRevenue <- log(tr_full$totalTransactionRevenue)
@@ -90,22 +94,36 @@ tr_full$date = ymd(tr_full$date)
 tr_full$visitStartTime <- as.POSIXct(tr_full$visitStartTime, tz="UTC", origin='1970-01-01')
 
 #change specific columns to integer
-for (i in c(5,29:35)){
+for (i in c(5,29:34)){
   tr_full[,i] = as.integer(tr_full[,i])
 }
 
 tr_full$visitId <- as.factor(tr_full$visitId)
+str(tr_full)
 
 #for(i in 1:length(tr_full)){
 #  ifelse(class(tr_full[,i])=="factor",  tr_full[,i] <- as.character(tr_full[,i]), tr_full[,i])
 #}
 
+#Optional
+#remove factors with too many levels
+bad_col_2 <- c()
+for(i in 1:length(tr_full)){
+  if(length(levels(tr_full[,i]))>53 && class(tr_full[,i]) == "factor"){
+    bad_col_2 <- c(bad_col_2, colnames(tr_full[i]))
+  }
+}
+bad_col_2
+
+#remove bad_col_2
+tr_full_2 <- tr_full
+tr_full <- tr_full[,!colnames(tr_full) %in% bad_col_2]
 
 #######################################################
 # train-test split for validation
 ########################################################
 set.seed(1)
-split<-(.8) 
+split<-(.9) 
 trainingRowIndex <- sample(1:nrow(tr_full),(split)*nrow(tr_full)) # row indices for training data
 trainingData <- tr_full[trainingRowIndex, ]  # model training data
 testData  <- tr_full[-trainingRowIndex, ]   # test data
@@ -137,11 +155,12 @@ RMSE(testData$totalTransactionRevenue, gbm_pred)
 #######################################################
 # building model - gbm
 ########################################################
+str(tr_full)
 require(gbm)
 start.time <- Sys.time()
 gbm_model <- gbm(totalTransactionRevenue~.,
                  distribution="gaussian",
-                 data=trainingData[,c(-2:-4,-6)],
+                 data=trainingData[,c(-2,-4)],#,-6,-17)],    # notice -2:-4 or -2,-4
                  n.trees = 500, # number of trees
                  interaction.depth = 3,
                  n.minobsinnode = 100, # minimum number of obs needed in each node
@@ -160,7 +179,8 @@ gbm_imp <- summary(gbm_model, n.trees=opt_iter)
 gbm_imp
 
 #prediction for test dataset
-gbm_pred <- predict(gbm_model, testData, n.trees=opt_iter)
+gbm_pred <- data.frame(actual = testData$totalTransactionRevenue, 
+                       predict = predict(gbm_model, testData, n.trees=opt_iter))
 
 #caculate the rmse of predicted values
 RMSE(testData$totalTransactionRevenue, gbm_pred) 
@@ -169,8 +189,39 @@ RMSE(testData$totalTransactionRevenue, gbm_pred)
 #######################################################
 # building model - rf       (factor issue?)
 ########################################################
-rf_model <- randomForest(totalTransactionRevenue~.,trainingData[,c(-2:-4,-6)],ntree=250, nodesize=100)
+require(randomForest)
+start.time <- Sys.time()
+rf_model <- randomForest(totalTransactionRevenue~.,trainingData[,c(-2,-4)],ntree=250, nodesize=100)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
 
+fitControl <- trainControl(method="repeatedcv", number=5, repeats=3)
+mtry <- sqrt(ncol(trainingData[,c(-2,-4)]))
+tunegrid <- expand.grid(.mtry=mtry)
+
+start.time <- Sys.time()
+rf_model <-train(trainingData[,c(-2,-4,-25)], 
+             trainingData[,25],
+             method='rf',
+             tuneGrid=tunegrid,
+             trControl=fitControl)
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+rf.predict<-predict(rf_2, test.df,type="raw")
+#rf.predict
+rf.conf2 <- confusionMatrix(rf.predict,test.df[,2], positive="1")
+rf.conf2
+F1_Score(test.df[,2],rf.predict)
+
+#plot roc line
+rf.probs_1 <- predict(rf_1,test.df,type="prob")
+rf.probs_2 <- predict(rf_2,test.df,type="prob")
+rf.plot<-plot(roc(test.df$TARGET,rf.probs_1[,2]), col="red")
+rf.plot.tuned <-lines(roc(test.df$TARGET,rf.probs_2[,2]), col="orange")
+legend("bottomright", legend=c("rf","rf tuned"), col=c("red","orange"), lwd=2)
 
 
 
