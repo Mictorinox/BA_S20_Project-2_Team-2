@@ -234,4 +234,4 @@ end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
 
-rf.predict<-predict(rf_model2, tr_test_rf,type="raw")
+rf.predict<-predict(rf_model2, tr_test_rf,type="response")
