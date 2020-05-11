@@ -5,7 +5,8 @@ library(jsonlite)
 library(lubridate)
 library(magrittr)
 library(caret)
-library(lightgbm)
+# library(lightgbm)
+library(gbm)
 library(foreach)
 
 ########################
@@ -158,7 +159,24 @@ tr_full_3 <- read.csv(paste(source_path,"train_yes_v10.csv",sep = ""),stringsAsF
 
 
 
+set.seed(1)
+split<-(.8) 
+trainingRowIndex <- sample(1:nrow(tr_full),(split)*nrow(tr_full)) # row indices for training data
+trainingData <- tr_full[trainingRowIndex, ]  # model training data
+testData  <- tr_full[-trainingRowIndex, ]   # test data
 
 
-
+start.time <- Sys.time()
+gbm_model <- gbm(totalTransactionRevenue~.,
+                 distribution="gaussian",
+                 data=trainingData[,c(-2:-4,-6)],
+                 n.trees = 500, # number of trees
+                 interaction.depth = 3,
+                 n.minobsinnode = 100, # minimum number of obs needed in each node
+                 shrinkage = 0.01, # learning rate
+                 bag.fraction = 0.5, # subsampling
+                 train.fraction = 0.5,
+                 cv.folds = 10,      # do 10-fold cross-validation
+                 verbose = FALSE )
+end.time <- Sys.time()
 
