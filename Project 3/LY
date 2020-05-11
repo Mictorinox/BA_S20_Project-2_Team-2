@@ -1,0 +1,130 @@
+
+###Loading required libraries
+install.packages("lattice")
+library(plyr)
+library(tidyverse)
+library(jsonlite)
+library(lubridate)
+library(caret)
+library(gbm)
+#install.packages("")
+
+
+###Defining types of extracted attributes
+ctypes <- cols(fullVisitorId = col_character(),
+               channelGrouping = col_character(),
+               date = col_datetime(),
+               device = col_character(),
+               geoNetwork = col_character(),
+               socialEngagementType = col_character(), 
+               totals = col_character(),
+               trafficSource = col_character(),
+               visitId = col_integer(), 
+               visitNumber = col_integer(),
+               visitStartTime = col_integer(),
+               hits = col_skip(),
+               customDimensions = col_skip())
+
+
+###Data extraction
+message("Data Extraction")
+tr_full <- read_csv("~/Downloads/combined_yes_v10.csv",col_types=ctypes)
+
+table(tr_full$subContinent )
+
+tr_full$others<-ifelse(tr_full$browser=="Amazon Silk"|tr_full$browser=="Samsung Internet"|tr_full$browser=="YaBrowser"|tr_full$browser=="Android Webview"|tr_full$browser=="Opera"|tr_full$browser=="Safari (in-app)", "Others",tr_full$browser)
+
+tr_full$continent2<-ifelse(tr_full$subContinent=="(not set)"|tr_full$subContinent=="Central Asia"|tr_full$subContinent=="Eastern Africa"|tr_full$subContinent=="Northern Africa"|tr_full$subContinent=="Southern Africa"|tr_full$subContinent=="Western Africa", "Others",tr_full$subContinent)
+
+
+tr_full<-tr_full[, !(colnames(tr_full) %in% c("browser", "subContinent","adwordsClickInfo.isVideoAd","visitStartTime","adwordsClickInfo.gclId","channelGrouping","date","fullVisitorId","visitId","city","networkDomain","country","metro","region","keyword","referralPath","source"))]
+tr_full
+tr_full$deviceCategory<-as.factor(tr_full$deviceCategory)
+tr_full$continent<-as.factor(tr_full$continent)
+#tr_full$country<-as.factor(tr_full$country)
+#tr_full$metro<-as.factor(tr_full$metro)
+tr_full$medium<-as.factor(tr_full$medium)
+#tr_full$source<-as.factor(tr_full$source)
+tr_full$others<-as.factor(tr_full$others)
+tr_full$continent2<-as.factor(tr_full$continent2)
+#tr_full$region<-as.factor(tr_full$region)
+tr_full$adwordsClickInfo.slot<-as.factor(tr_full$adwordsClickInfo.slot)
+tr_full$isTrueDirect<-as.factor(tr_full$isTrueDirect)
+#tr_full$keyword<-as.factor(tr_full$keyword)
+
+table(tr_full$networkDomain)
+
+tr_full$logtotalTransactionRevenue<-ifelse(tr_full$totalTransactionRevenue==0,0,log(tr_full$totalTransactionRevenue))
+
+
+
+#######################################################
+# train-test split for validation
+########################################################
+set.seed(1)
+split<-(.8) 
+trainingRowIndex <- sample(1:nrow(tr_full),(split)*nrow(tr_full)) # row indices for training data
+trainingData <- tr_full[trainingRowIndex, ]  # model training data
+testData  <- tr_full[-trainingRowIndex, ]   # test data
+
+#caculate the rmse of the model for accuracy analysis
+RMSE <- function(m, o){
+  sqrt(mean((m - o)^2))
+}
+
+mean(trainingData$logtotalTransactionRevenue)
+
+
+
+#######################################################
+# building model - glm
+########################################################
+#tr_full_test <- sample_n(trainingData,2000)
+start.time <- Sys.time()
+glm_model <- glm(logtotalTransactionRevenue~., trainingData, family="gaussian")
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+#summary(glm_model)
+
+#prediction for test dataset
+glm_pred <- predict(glm_model, testData)
+table(testData$subContinent)
+#caculate rmse of predicted values
+RMSE(testData$logtotalTransactionRevenue, glm_pred) 
+
+testData$totalTransactionRevenue_log<-log(testData$totalTransactionRevenue)
+
+
+
+#######################################################
+# building model - gbm
+########################################################
+require(gbm)
+start.time <- Sys.time()
+gbm_model <- gbm(logtotalTransactionRevenue~.,
+                 distribution="gaussian",
+                 data=trainingData[,c(-2:-4,-6)],
+                 n.trees = 500, # number of trees
+                 interaction.depth = 3,
+                 n.minobsinnode = 100, # minimum number of obs needed in each node
+                 shrinkage = 0.01, # learning rate
+                 bag.fraction = 0.5, # subsampling
+                 train.fraction = 0.5,
+                 cv.folds = 10,      # do 10-fold cross-validation
+                 verbose = FALSE )
+end.time <- Sys.time()
+time.taken <- end.time - start.time
+time.taken
+
+#Get the best performance ntree option
+opt_iter <- gbm.perf(gbm_model, method="test")
+gbm_imp <- summary(gbm_model, n.trees=opt_iter)
+gbm_imp
+
+#prediction for test dataset
+gbm_pred <- predict(gbm_model, testData, n.trees=opt_iter)
+
+#caculate the rmse of predicted values
+RMSE(testData$logtotalTransactionRevenue, gbm_pred) 
