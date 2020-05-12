@@ -132,18 +132,37 @@ str(tr_full)
 ###date as ymd-date, part of columns as integers
 tr_full$date = ymd(tr_full$date)
 tr_full$visitStartTime <- as.POSIXct(tr_full$visitStartTime, tz="UTC", origin='1970-01-01')
+tr_full$fullVisitorId <- as.character(tr_full$fullVisitorId)
+class(tr_full$fullVisitorId)
 
 for (i in c(18:26,31))
   tr_full[,i] = as.integer(tr_full[,i])
 
 tr_full$adwordsClickInfo.isVideoAd <- as.factor(tr_full$adwordsClickInfo.isVideoAd)
 tr_full$isTrueDirect <- as.factor(tr_full$isTrueDirect)
+tr_full$isMobile <- as.factor(tr_full$isMobile)
+tr_full$adContent <- as.character(tr_full$adContent)
+tr_full$adwordsClickInfo.adNetworkType <- as.character(tr_full$adwordsClickInfo.adNetworkType)
+tr_full$campaign <- as.character(tr_full$campaign)
 
 ###if transactionRevenue is NA, it means 0
 ## edited into totalTransactionRevenue
 tr_full$totalTransactionRevenue = ifelse(is.na(tr_full$totalTransactionRevenue) == TRUE, 0, tr_full$totalTransactionRevenue)
-summary(tr_full$adwordsClickInfo.slot)
+tr_full$logtotalTransactionRevenue<-ifelse(tr_full$totalTransactionRevenue==0,0,log(tr_full$totalTransactionRevenue))
+
 tr_full <-select(tr_full,-hits)
+names(tr_full)
+tr_full$deviceCategory<-as.factor(tr_full$deviceCategory)
+tr_full$continent<-as.factor(tr_full$continent)
+tr_full$country<-as.factor(tr_full$country)
+tr_full$metro<-as.factor(tr_full$metro)
+tr_full$medium<-as.factor(tr_full$medium)
+tr_full$source<-as.factor(tr_full$source)
+tr_full$others<-as.factor(tr_full$others)
+tr_full$region<-as.factor(tr_full$region)
+tr_full$adwordsClickInfo.slot<-as.factor(tr_full$adwordsClickInfo.slot)
+tr_full$isTrueDirect<-as.factor(tr_full$isTrueDirect)
+tr_full$keyword<-as.factor(tr_full$keyword)
 
 tr_full_re <- tr_full
 tr_full_re$totalTransactionRevenue <- tr_full_re$totalTransactionRevenue/10^6
@@ -152,24 +171,40 @@ tr_full_training <- subset(tr_full,tr_full$date < as.Date("2018-05-01"))
 tr_full_testing <- subset(tr_full,tr_full$date >= as.Date("2018-05-01"))
 
 
-write.csv(tr_full_training,file=paste(source_path,"train_yes_v10.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
-write.csv(tr_full_testing,file=paste(source_path,"test_yes_v10.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
+write.csv(tr_full_training,file=paste(source_path,"train_yes_v11.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
+write.csv(tr_full_testing,file=paste(source_path,"test_yes_v11.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
 
-tr_full_3 <- read.csv(paste(source_path,"train_yes_v10.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
+write.csv(tr_full,file=paste(source_path,"combined_yes_v10_forVisual.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
 
+tr_full_training_2 <- read.csv(paste(source_path,"train_yes_v11.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
+tr_full_testing_2 <- read.csv(paste(source_path,"test_yes_v11.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
+
+str(tr_full_training_2)
 
 
 set.seed(1)
 split<-(.8) 
-trainingRowIndex <- sample(1:nrow(tr_full),(split)*nrow(tr_full)) # row indices for training data
-trainingData <- tr_full[trainingRowIndex, ]  # model training data
-testData  <- tr_full[-trainingRowIndex, ]   # test data
+trainingRowIndex <- sample(1:nrow(tr_full_training),(split)*nrow(tr_full_training)) # row indices for training data
+df_training <- tr_full[trainingRowIndex, ]  # model training data
+df_testing  <- tr_full[-trainingRowIndex, ]   # test data
+
+str(df_training)
+
+names(df_training)
 
 
 start.time <- Sys.time()
-gbm_model <- gbm(totalTransactionRevenue~.,
+gbm_model <- gbm(logtotalTransactionRevenue ~ channelGrouping + 
+                 visitNumber + browser + deviceCategory + 
+                 isMobile + operatingSystem + city + continent + 
+                 country + metro + region + 
+                 subContinent + newVisits + pageviews + sessionQualityDim + 
+                 timeOnSite + transactions + adContent + 
+                 adwordsClickInfo.adNetworkType + adwordsClickInfo.gclId + adwordsClickInfo.isVideoAd + adwordsClickInfo.page + 
+                 adwordsClickInfo.slot + campaign + isTrueDirect + keyword + 
+                 medium + referralPath + source,
                  distribution="gaussian",
-                 data=trainingData[,c(-2:-4,-6)],
+                 data=df_training,
                  n.trees = 500, # number of trees
                  interaction.depth = 3,
                  n.minobsinnode = 100, # minimum number of obs needed in each node
@@ -179,4 +214,9 @@ gbm_model <- gbm(totalTransactionRevenue~.,
                  cv.folds = 10,      # do 10-fold cross-validation
                  verbose = FALSE )
 end.time <- Sys.time()
+time.taken <- end.time - start.time
+
+RMSE <- function(m, o){
+  sqrt(mean((m - o)^2))
+}
 
