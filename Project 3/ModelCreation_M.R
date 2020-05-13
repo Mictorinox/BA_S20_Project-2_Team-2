@@ -117,7 +117,7 @@ good_cols = c("channelGrouping","date","fullVisitorId","visitId","visitNumber","
               "isMobile","operatingSystem","city","continent","country","metro","networkDomain","region","subContinent",                              
               "hits","newVisits","pageviews","sessionQualityDim","timeOnSite","totalTransactionRevenue",
               "transactions","adContent","adwordsClickInfo.adNetworkType", "adwordsClickInfo.gclId","adwordsClickInfo.isVideoAd",
-              "adwordsClickInfo.page", "adwordsClickInfo.slot","campaign","isTrueDirect","keyword","medium","referralPath","source")
+              "adwordsClickInfo.page", "adwordsClickInfo.slot","campaign","isTrueDirect","keyword","medium","referralPath","source","hits1")
 length(good_cols)
 # Removed "transactionRevenue" here,
 # subset(good_cols,good_cols %ni% names(tr_full))
@@ -163,6 +163,7 @@ tr_full$region<-as.factor(tr_full$region)
 tr_full$adwordsClickInfo.slot<-as.factor(tr_full$adwordsClickInfo.slot)
 tr_full$isTrueDirect<-as.factor(tr_full$isTrueDirect)
 tr_full$keyword<-as.factor(tr_full$keyword)
+tr_full$hits1 <- as.numeric(tr_full$hits1)
 
 tr_full_re <- tr_full
 tr_full_re$totalTransactionRevenue <- tr_full_re$totalTransactionRevenue/10^6
@@ -174,13 +175,18 @@ tr_full_testing <- subset(tr_full,tr_full$date >= as.Date("2018-05-01"))
 write.csv(tr_full_training,file=paste(source_path,"train_yes_v11.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
 write.csv(tr_full_testing,file=paste(source_path,"test_yes_v11.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
 
-write.csv(tr_full,file=paste(source_path,"combined_yes_v10_forVisual.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
+write.csv(tr_full,file=paste(source_path,"combined_yes_v11.csv",sep = ""),row.names=F,fileEncoding = "utf-8")
 
-tr_full_training_2 <- read.csv(paste(source_path,"train_yes_v11.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
+tr_full_2 <- read.csv(paste(source_path,"combined_yes_v11.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
+tr_full_2$totalTransactionRevenue <- tr_full_2$totalTransactionRevenue/10^6
+summary(tr_full_2)
+
+
 tr_full_testing_2 <- read.csv(paste(source_path,"test_yes_v11.csv",sep = ""),stringsAsFactors=F,fileEncoding = "utf-8")
 
 str(tr_full_training_2)
-
+tr_full_2$country <- as.factor(tr_full_2$country)
+length(levels(tr_full_2$country))
 
 set.seed(1)
 split<-(.8) 
